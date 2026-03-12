@@ -1,19 +1,17 @@
 /* ═══════════════════════════════════════════════════════════
-   NEBULA.io — Multiplayer Client v3
-   - Entity nesneleri düzgün oluşturuluyor
-   - Food Map ile sync
-   - myId timing sorunu giderildi
-   - loop/render tam override
+   NEBULA.io — Multiplayer Client v4
+   4 Oda Sistemi + Food/Bot sync düzeltmesi
 ═══════════════════════════════════════════════════════════ */
 
-let socket = null;
-let myId   = null;
-let _leaderboard = [];
-let _snapTreasures = [];
-let _pingStart = 0, _pingMs = 0;
-let _serverBlend = 0.15;
-let _otherPlayers = new Map();
-let _foodMap = new Map();
+let socket     = null;
+let myId       = null;
+let selectedRoom = null;  // seçilen oda id'si
+let _leaderboard    = [];
+let _snapTreasures  = [];
+let _pingStart = 0;
+let _serverBlend    = 0.18;
+let _otherPlayers   = new Map();  // id → Entity
+let _foodMap        = new Map();  // foodId → Food obj
 
 // ── loop override ─────────────────────────────────────────────
 window.loop = function() {
@@ -31,11 +29,14 @@ function _mpUpdate() {
   if (specCD  > 0) specCD--;
   if (player.phaseT > 0) player.phaseT--;
   if (camShake > 0) camShake -= 0.7;
-  if (comboTimer > 0) { comboTimer--; if (comboTimer <= 0 && combo > 0) { combo = 0; hideCombo(); } }
+  if (comboTimer > 0) {
+    comboTimer--;
+    if (comboTimer <= 0 && combo > 0) { combo = 0; hideCombo(); }
+  }
 
   if (gc) {
     const zoom = _mpZoom();
-    const wx = player.x + (mx - gc.width / 2) / zoom;
+    const wx = player.x + (mx - gc.width  / 2) / zoom;
     const wy = player.y + (my - gc.height / 2) / zoom;
     const dx = wx - player.x, dy = wy - player.y, d = Math.hypot(dx, dy);
     if (d > 0.5) {
@@ -58,6 +59,7 @@ function _mpUpdate() {
     if (parts.length > 150) parts.splice(0, parts.length - 150);
   }
 
+  // Bot trail (görsel interpolasyon)
   bots.forEach(b => {
     if (!b.alive) return;
     b.trail.unshift({ x: b.x, y: b.y });
@@ -72,8 +74,74 @@ function _mpZoom() {
   return Math.min(1.15, Math.max(0.22, 72 / player.r));
 }
 
-// getZoom override
-window.getZoom = function() { return _mpZoom(); };
+window.getZoom = () => _mpZoom();
+
+// ── Sync yardımcıları ─────────────────────────────────────────
+function _syncPlayers(list) {
+  const ids = new Set();
+  (list || []).forEach(p => {
+    if (p.id === myId) return;
+    ids.add(p.id);
+    let op = _otherPlayers.get(p.id);
+    if (!op) {
+      op = new Entity(p.x, p.y, p.mass, p.name, p.el || 'solar', false, p.color);
+      op.id = p.id;
+      _otherPlayers.set(p.id, op);
+    }
+    op.x    += (p.x - op.x) * 0.3;
+    op.y    += (p.y - op.y) * 0.3;
+    op.mass  = p.mass;
+    op.alive = p.alive;
+    op.phaseT = p.phaseT || 0;
+    op.trail  = p.trail || [];
+    op.ang    = p.ang   || 0;
+    op.color  = p.color;
+    op.name   = p.name;
+    op.equipped = p.equipped || {};
+    op.boostActive = p.boostActive || false;
+  });
+  _otherPlayers.forEach((_, id) => { if (!ids.has(id)) _otherPlayers.delete(id); });
+}
+
+function _syncBots(list) {
+  const ids = new Set((list || []).map(b => b.id));
+  (list || []).forEach(b => {
+    let bot = bots.find(x => x.id === b.id);
+    if (!bot) {
+      bot = new Entity(b.x, b.y, b.mass, b.name, b.el || 'solar', true, b.color);
+      bot.id = b.id;
+      bot.pulseP = Math.random() * Math.PI * 2;
+      bots.push(bot);
+    }
+    bot.x   += (b.x - bot.x) * 0.25;
+    bot.y   += (b.y - bot.y) * 0.25;
+    bot.mass = b.mass;
+    bot.alive = true;
+    bot.ang  = b.ang   || 0;
+    bot.color = b.color;
+    bot.name  = b.name;
+    if (b.trail && b.trail.length) bot.trail = b.trail;
+  });
+  bots = bots.filter(b => ids.has(b.id));
+}
+
+function _syncFood(list) {
+  const sids = new Set();
+  (list || []).forEach(sf => {
+    sids.add(sf.id);
+    if (!_foodMap.has(sf.id)) {
+      const f = new Food(sf.x, sf.y, sf.v, sf.color);
+      f._sid = sf.id;
+      f.r    = sf.r   || 2.5;
+      f.ph   = sf.ph  || 0;
+      f.vx   = sf.vx  || 0;
+      f.vy   = sf.vy  || 0;
+      _foodMap.set(sf.id, f);
+    }
+  });
+  _foodMap.forEach((_, id) => { if (!sids.has(id)) _foodMap.delete(id); });
+  food = Array.from(_foodMap.values());
+}
 
 // ── drawTreasures override ────────────────────────────────────
 window.drawTreasures = function() {
@@ -85,11 +153,13 @@ window.drawTreasures = function() {
     gctx.save(); gctx.translate(tr.x, tr.y);
     if (dist < 380) {
       const g = gctx.createRadialGradient(0,0,0,0,0,r*2.5);
-      g.addColorStop(0,(tr.col||'#ffbf00')+'44'); g.addColorStop(1,'rgba(0,0,0,0)');
+      g.addColorStop(0, (tr.col||'#ffbf00')+'44');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
       gctx.fillStyle=g; gctx.beginPath(); gctx.arc(0,0,r*2.5,0,Math.PI*2); gctx.fill();
       gctx.shadowColor=tr.col||'#ffbf00'; gctx.shadowBlur=14;
-      gctx.fillStyle='rgba(30,20,10,.9)'; gctx.strokeStyle=tr.col||'#ffbf00'; gctx.lineWidth=2.5;
-      const hw=r*.9,hh=r*.7;
+      gctx.fillStyle='rgba(30,20,10,.9)';
+      gctx.strokeStyle=tr.col||'#ffbf00'; gctx.lineWidth=2.5;
+      const hw=r*.9, hh=r*.7;
       gctx.beginPath(); gctx.roundRect(-hw,-hh,hw*2,hh*2,4); gctx.fill(); gctx.stroke();
       gctx.strokeStyle='rgba(255,255,255,.25)'; gctx.lineWidth=1;
       gctx.beginPath(); gctx.moveTo(-hw,0); gctx.lineTo(hw,0); gctx.stroke();
@@ -138,15 +208,12 @@ window.render = function() {
   drawFoodBatch();
   if(S.particles) parts.forEach(drawPart);
 
-  // Botlar
-  bots.forEach(b=>{if(b.alive){drawTrail(b);drawOrb(b,false);}});
-  // Diğer oyuncular
-  _otherPlayers.forEach(op=>{
+  bots.forEach(b => { if(b.alive){drawTrail(b);drawOrb(b,false);} });
+  _otherPlayers.forEach(op => {
     if(!op.alive) return;
     drawTrail(op); drawOrb(op,false);
     if(op.phaseT>0) drawPhaseEffect(op);
   });
-  // Ben
   drawTrail(player);
   if(player.alive) drawOrb(player,true);
   if(player.phaseT>0) drawPhaseEffect(player);
@@ -169,10 +236,7 @@ function _mpMinimap(){
     mmCtx.beginPath();mmCtx.moveTo(i*mw/5,0);mmCtx.lineTo(i*mw/5,mh);mmCtx.stroke();
     mmCtx.beginPath();mmCtx.moveTo(0,i*mh/5);mmCtx.lineTo(mw,i*mh/5);mmCtx.stroke();
   }
-  safeZones.forEach(sz=>{
-    mmCtx.fillStyle='rgba(0,255,136,.1)';mmCtx.beginPath();mmCtx.arc(sz.x*sc,sz.y*sc,sz.r*sc,0,Math.PI*2);mmCtx.fill();
-    mmCtx.strokeStyle='rgba(0,255,136,.3)';mmCtx.lineWidth=1;mmCtx.stroke();
-  });
+  safeZones.forEach(sz=>{mmCtx.fillStyle='rgba(0,255,136,.1)';mmCtx.beginPath();mmCtx.arc(sz.x*sc,sz.y*sc,sz.r*sc,0,Math.PI*2);mmCtx.fill();mmCtx.strokeStyle='rgba(0,255,136,.3)';mmCtx.lineWidth=1;mmCtx.stroke();});
   _snapTreasures.forEach(tr=>{if(tr.collected)return;mmCtx.fillStyle=tr.col||'#ffbf00';mmCtx.beginPath();mmCtx.arc(tr.x*sc,tr.y*sc,2.5,0,Math.PI*2);mmCtx.fill();});
   asteroids.forEach(a=>{mmCtx.fillStyle='rgba(160,140,200,.45)';mmCtx.beginPath();mmCtx.arc(a.x*sc,a.y*sc,Math.max(1,a.r*sc),0,Math.PI*2);mmCtx.fill();});
   clusters.forEach(c=>{mmCtx.fillStyle='rgba(255,200,50,.1)';mmCtx.beginPath();mmCtx.arc(c.x*sc,c.y*sc,c.r*sc,0,Math.PI*2);mmCtx.fill();});
@@ -222,59 +286,89 @@ window.updateHUD = function(){
 };
 
 // ── Ability overrides ─────────────────────────────────────────
-window.doBoost=function(){if(boostCD>0||!player?.alive)return;boostActive=true;boostCD=120;setTimeout(()=>{if(player)boostActive=false;},480);sfxBoost();socket?.emit('boost');};
-window.doNova=function(){if(novaCD>0||!player?.alive||player.mass<14)return;player.mass-=10;novaCD=180;if(S.shake)camShake=5;sfxNova();socket?.emit('nova');};
-window.doSpecial=function(){if(specCD>0||!player?.alive)return;specCD=EL_CFG[selEl].cd;sfxSpecial();socket?.emit('special');const cols={solar:'#ffbf00',plasma:'#00e0ff',void:'#a040ff',nebula:'#ff00d4'};if(S.particles)burstParts(player.x,player.y,cols[selEl]||'#fff',28);};
+window.doBoost = function(){
+  if(boostCD>0||!player?.alive) return;
+  boostActive=true; boostCD=120;
+  setTimeout(()=>{if(player)boostActive=false;},480);
+  sfxBoost(); socket?.emit('boost');
+};
+window.doNova = function(){
+  if(novaCD>0||!player?.alive||player.mass<14) return;
+  player.mass-=10; novaCD=180;
+  if(S.shake) camShake=5;
+  sfxNova(); socket?.emit('nova');
+};
+window.doSpecial = function(){
+  if(specCD>0||!player?.alive) return;
+  specCD=EL_CFG[selEl].cd;
+  sfxSpecial(); socket?.emit('special');
+  const cols={solar:'#ffbf00',plasma:'#00e0ff',void:'#a040ff',nebula:'#ff00d4'};
+  if(S.particles) burstParts(player.x,player.y,cols[selEl]||'#fff',28);
+};
 
-// ── Sync yardımcıları ─────────────────────────────────────────
-function _syncPlayers(serverPlayers){
-  const ids=new Set();
-  (serverPlayers||[]).forEach(p=>{
-    if(p.id===myId) return;
-    ids.add(p.id);
-    let op=_otherPlayers.get(p.id);
-    if(!op){op=new Entity(p.x,p.y,p.mass,p.name,p.el||'solar',false,p.color);op.id=p.id;_otherPlayers.set(p.id,op);}
-    op.x+=(p.x-op.x)*.3; op.y+=(p.y-op.y)*.3;
-    op.mass=p.mass; op.alive=p.alive; op.phaseT=p.phaseT||0;
-    op.trail=p.trail||[]; op.ang=p.ang||0; op.color=p.color;
-    op.name=p.name; op.equipped=p.equipped||{}; op.boostActive=p.boostActive||false;
-  });
-  _otherPlayers.forEach((_,id)=>{if(!ids.has(id))_otherPlayers.delete(id);});
-}
+// ── Lobby UI ──────────────────────────────────────────────────
+const ROOM_COLORS = {
+  nebula:{ border:'var(--cyan)', bg:'rgba(0,224,255,.08)', text:'var(--cyan)' },
+  buzul: { border:'#88ddff',     bg:'rgba(136,221,255,.08)', text:'#88ddff' },
+  volkan:{ border:'#ff6600',     bg:'rgba(255,102,0,.08)',   text:'#ff6600' },
+  neon:  { border:'#ff00cc',     bg:'rgba(255,0,204,.08)',   text:'#ff00cc' },
+};
+const ROOM_ICONS = { nebula:'🌌', buzul:'❄️', volkan:'🌋', neon:'🌃' };
 
-function _syncBots(serverBots){
-  const ids=new Set((serverBots||[]).map(b=>b.id));
-  (serverBots||[]).forEach(b=>{
-    let bot=bots.find(x=>x.id===b.id);
-    if(!bot){bot=new Entity(b.x,b.y,b.mass,b.name,b.el||'solar',true,b.color);bot.id=b.id;bot.pulseP=Math.random()*Math.PI*2;bots.push(bot);}
-    bot.x+=(b.x-bot.x)*.25; bot.y+=(b.y-bot.y)*.25;
-    bot.mass=b.mass; bot.alive=true; bot.ang=b.ang||0; bot.color=b.color; bot.name=b.name;
-    if(b.trail&&b.trail.length) bot.trail=b.trail;
-  });
-  bots=bots.filter(b=>ids.has(b.id));
-}
+function renderLobby(rooms) {
+  const grid = document.getElementById('room-grid');
+  if (!grid) return;
+  grid.innerHTML = rooms.map(r => {
+    const c = ROOM_COLORS[r.theme] || ROOM_COLORS.nebula;
+    const selected = selectedRoom === r.id;
+    return `
+    <div onclick="selectRoom('${r.id}')"
+      style="cursor:pointer;border-radius:10px;padding:.85rem .7rem;text-align:center;transition:all .18s;
+        border:2px solid ${selected ? c.border : 'rgba(255,255,255,.1)'};
+        background:${selected ? c.bg : 'rgba(0,0,0,.3)'};
+        box-shadow:${selected ? `0 0 12px ${c.border}44` : 'none'}">
+      <div style="font-size:1.6rem;margin-bottom:.25rem">${ROOM_ICONS[r.theme]||'🌌'}</div>
+      <div style="font-family:Orbitron,sans-serif;font-size:.58rem;letter-spacing:2px;color:${c.text};font-weight:700">${r.name}</div>
+      <div style="font-size:.6rem;color:rgba(255,255,255,.45);margin:.2rem 0">${r.desc||''}</div>
+      <div style="font-family:Orbitron,sans-serif;font-size:.52rem;color:${r.players>0?'#00ff88':'rgba(255,255,255,.3)'}">
+        ${r.players>0?'● '+r.players+' oyuncu':'○ Boş'}
+      </div>
+    </div>`;
+  }).join('');
 
-function _syncFood(serverFood){
-  const sids=new Set();
-  (serverFood||[]).forEach(sf=>{
-    sids.add(sf.id);
-    if(!_foodMap.has(sf.id)){
-      const f=new Food(sf.x,sf.y,sf.v,sf.color);
-      f._sid=sf.id; f.r=sf.r||2.5; f.ph=sf.ph||0; f.vx=sf.vx||0; f.vy=sf.vy||0;
-      _foodMap.set(sf.id,f);
+  // Play butonunu aktif/pasif yap
+  const btn = document.getElementById('btn-play');
+  if (btn) {
+    if (selectedRoom) {
+      btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      btn.innerHTML = `<span>▶ &nbsp;${ROOM_ICONS[selectedRoom]||''} ${selectedRoom.toUpperCase()} ODASINA GİR</span>`;
+    } else {
+      btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed';
+      btn.innerHTML = '<span>▶ &nbsp;ODA SEÇ VE OYNA</span>';
     }
-  });
-  _foodMap.forEach((_,id)=>{if(!sids.has(id))_foodMap.delete(id);});
-  food=Array.from(_foodMap.values());
+  }
 }
+
+window.selectRoom = function(id) {
+  selectedRoom = id;
+  MAP_THEME = id; // tema = oda teması
+  renderLobby(_lastLobbyData || []);
+};
+
+let _lastLobbyData = [];
 
 // ── startGame override ────────────────────────────────────────
-window.startGame=function(){
-  S=DB.settings;
-  food=[];bots=[];parts=[];clusters=[];wormholes=[];blackHoles=[];asteroids=[];safeZones=[];
-  _otherPlayers.clear();_foodMap.clear();_snapTreasures=[];
-  combo=0;comboTimer=0;killCount=0;maxMass=0;score=0;camShake=0;
-  boostCD=0;novaCD=0;specCD=0;boostActive=false;tickN=0;
+window.startGame = function(){
+  if (!selectedRoom) {
+    showToast('⚠️ Önce bir oda seç!', '#ff6600', 2000);
+    return;
+  }
+  S = DB.settings;
+  food=[]; bots=[]; parts=[]; clusters=[];
+  wormholes=[]; blackHoles=[]; asteroids=[]; safeZones=[];
+  _otherPlayers.clear(); _foodMap.clear(); _snapTreasures=[];
+  combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
+  boostCD=0; novaCD=0; specCD=0; boostActive=false; tickN=0;
 
   const nick=(document.getElementById('game-nick')?.value||'').trim()||'Gezgin';
   const user=getCurrentUser();
@@ -305,7 +399,8 @@ window.startGame=function(){
   window.addEventListener('keydown',onKD);
   gc.addEventListener('contextmenu',e=>{e.preventDefault();doNova();});
 
-  socket?.emit('join',{name:nick,el:selEl,equipped});
+  // Odaya katıl
+  socket?.emit('join',{name:nick,el:selEl,equipped,roomId:selectedRoom});
 
   gameRunning=true;
   if(raf) cancelAnimationFrame(raf);
@@ -313,24 +408,34 @@ window.startGame=function(){
 };
 
 // ── Death / Restart / Exit ────────────────────────────────────
-window.restartGame=function(){document.getElementById('ov-death')?.classList.remove('on');};
-window.exitGame=function(){
+window.restartGame = function(){
+  document.getElementById('ov-death')?.classList.remove('on');
+};
+window.exitGame = function(){
   document.getElementById('ov-death')?.classList.remove('on');
   document.getElementById('ov-start')?.classList.add('on');
-  gameRunning=false;if(raf){cancelAnimationFrame(raf);raf=null;}
-  if(gc){gc.style.pointerEvents='none';}document.body.style.cursor='';
+  gameRunning=false; if(raf){cancelAnimationFrame(raf);raf=null;}
+  if(gc) gc.style.pointerEvents='none';
+  document.body.style.cursor='';
   const c=document.getElementById('cur');if(c)c.style.display='none';
-  window.removeEventListener('mousemove',onMM);window.removeEventListener('keydown',onKD);
+  window.removeEventListener('mousemove',onMM);
+  window.removeEventListener('keydown',onKD);
+  // Lobby yenile
+  socket?.emit('get_lobby');
 };
 window.exitToHome=function(){window.exitGame();goPage('index.html');};
-window.restartFromPause=function(){document.getElementById('ov-pause')?.classList.remove('on');gamePaused=false;window.exitGame();setTimeout(()=>window.startGame(),100);};
+window.restartFromPause=function(){
+  document.getElementById('ov-pause')?.classList.remove('on');
+  gamePaused=false; window.exitGame();
+  setTimeout(()=>window.startGame(),100);
+};
 
 function _showDeath(data){
   const s=data.time||0,m=Math.floor(s/60),sec=s%60;
   const q=id=>document.getElementById(id);
   const by=q('death-by');if(by)by.textContent=`— ${data.by||'?'} Tarafından —`;
   const sc=q('death-sc');if(sc)sc.textContent=(data.score||0).toLocaleString();
-  const ms=q('ds-mass');if(ms)ms.textContent=data.maxMass||0;
+  const ms2=q('ds-mass');if(ms2)ms2.textContent=data.maxMass||0;
   const kl=q('ds-kills');if(kl)kl.textContent=data.kills||0;
   const tm=q('ds-time');if(tm)tm.textContent=`${m}:${String(sec).padStart(2,'0')}`;
   const dc=q('death-coins');if(dc)dc.textContent=Math.floor((data.score||0)/100)+' ◈';
@@ -357,7 +462,7 @@ function _updateThemeBadge(theme){
   if(b){b.textContent=(icons[theme]||'🌌')+' '+(names[theme]||theme.toUpperCase());b.style.color=cols[theme]||'var(--cyan)';}
 }
 
-// ── Ping / Online UI ──────────────────────────────────────────
+// ── Ping UI ───────────────────────────────────────────────────
 function _ensurePingUI(){
   if(document.getElementById('_ping_box')) return;
   const tl=document.getElementById('h-tl');if(!tl)return;
@@ -365,38 +470,55 @@ function _ensurePingUI(){
   d.innerHTML='<div class="hud-lbl">PING</div><div id="_ping_val" style="font-family:Orbitron,sans-serif;font-size:.75rem;color:#00ff88">--ms</div>';
   tl.appendChild(d);
 }
-function _updatePingUI(ms){const el=document.getElementById('_ping_val');if(!el)return;el.textContent=ms+'ms';el.style.color=ms<80?'#00ff88':ms<150?'#ffbf00':'#ff3355';}
-function _updateOnlineUI(n){
-  let d=document.getElementById('_online_ct');
-  if(!d){d=document.createElement('div');d.id='_online_ct';d.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;font-family:Orbitron,sans-serif;font-size:.52rem;letter-spacing:2px;color:rgba(0,224,255,.7);background:rgba(0,0,0,.6);padding:.28rem .75rem;border-radius:20px;border:1px solid rgba(0,224,255,.2);pointer-events:none';document.body.appendChild(d);}
-  d.innerHTML=`<span style="color:#00ff88">●</span> ${n} OYUNCU ONLİNE`;
+function _updatePingUI(ms){
+  const el=document.getElementById('_ping_val');if(!el)return;
+  el.textContent=ms+'ms';
+  el.style.color=ms<80?'#00ff88':ms<150?'#ffbf00':'#ff3355';
 }
 function _sendPing(){_pingStart=Date.now();socket?.emit('ping_mp');}
 
 // ── Socket ────────────────────────────────────────────────────
 function _connectSocket(){
-  socket=io({transports:['websocket'],reconnection:true,reconnectionDelay:1000});
+  socket=io({transports:['websocket','polling'],reconnection:true,reconnectionDelay:1000});
 
   socket.on('connect',()=>{
     console.log('✅ Bağlandı:',socket.id);
     myId=socket.id; if(player) player.id=myId;
     _ensurePingUI(); _sendPing();
+    socket.emit('get_lobby');
   });
   socket.on('disconnect',()=>console.warn('⚠ Bağlantı kesildi'));
 
+  // Lobby bilgisi
+  socket.on('lobby_info', rooms => {
+    _lastLobbyData = rooms;
+    renderLobby(rooms);
+    // Ana sayfa online sayacını güncelle
+    const onlineEl = document.getElementById('stat-online');
+    if (onlineEl) {
+      const total = rooms.reduce((s,r)=>s+r.players,0);
+      if (total > 0) onlineEl.textContent = total;
+    }
+  });
+
+  // Dünya verisi
   socket.on('world',data=>{
     MAP_THEME=data.theme||'nebula';
-    wormholes=data.wormholes||[];blackHoles=data.blackHoles||[];
-    asteroids=data.asteroids||[];clusters=data.clusters||[];safeZones=data.safeZones||[];
+    wormholes=data.wormholes||[];
+    blackHoles=data.blackHoles||[];
+    asteroids=data.asteroids||[];
+    clusters=data.clusters||[];
+    safeZones=data.safeZones||[];
     _syncFood(data.food||[]);
     window._icePatches=MAP_THEME==='buzul'
       ?[[1000,1000],[3000,800],[800,3500],[4000,2500],[2500,2000],[3200,3800]].map(p=>({x:p[0],y:p[1],r:160+Math.random()*80})):[];
     window._neonSigns=MAP_THEME==='neon'
       ?Array.from({length:20},()=>({x:200+Math.random()*4600,y:200+Math.random()*4600,w:80+Math.random()*120,h:40+Math.random()*60,hue:Math.random()*360,ang:0})):[];
     _updateThemeBadge(MAP_THEME);
-    console.log('🌍 Dünya hazır, tema:',MAP_THEME);
+    console.log('🌍 Dünya hazır:',MAP_THEME,'| Yem:',data.food?.length,'| Asteroid:',data.asteroids?.length);
   });
 
+  // Snapshot
   socket.on('snap',data=>{
     if(!myId&&socket.id){myId=socket.id;if(player)player.id=myId;}
     const me=data.players?.find(p=>p.id===myId);
@@ -414,9 +536,8 @@ function _connectSocket(){
     if(data.wormholes) wormholes=data.wormholes;
     if(data.blackHoles) blackHoles=data.blackHoles;
     if(data.boostCD!=null) boostCD=data.boostCD;
-    if(data.novaCD!=null)  novaCD=data.novaCD;
-    if(data.specCD!=null)  specCD=data.specCD;
-    _updateOnlineUI(data.players?.length||0);
+    if(data.novaCD !=null) novaCD=data.novaCD;
+    if(data.specCD !=null) specCD=data.specCD;
   });
 
   socket.on('leaderboard',data=>{_leaderboard=data;});
@@ -424,7 +545,8 @@ function _connectSocket(){
   socket.on('killfeed',({killer,victim})=>{
     const e=document.createElement('div');e.className='kfn';
     e.innerHTML=killer===player?.name?`<span class="ky">${killer}</span> <b>→</b> ${victim} yuttu!`:`<b>${killer}</b> → ${victim} yuttu!`;
-    const feed=document.getElementById('kf');if(feed){feed.appendChild(e);setTimeout(()=>e.remove(),3200);}
+    const feed=document.getElementById('kf');
+    if(feed){feed.appendChild(e);setTimeout(()=>e.remove(),3200);}
   });
 
   socket.on('killed',({name,combo:c,x,y,color})=>{
@@ -442,12 +564,19 @@ function _connectSocket(){
 
   socket.on('treasure',({coins,mass:m,tier,col,x,y})=>{
     sfxTreasure();if(S.shake)camShake=8;
-    if(S.particles){burstParts(x,y,col||'#ffbf00',28);for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;parts.push(new Particle(x,y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true));}}
-    score+=(coins||0)*2;showToast(`${['🥉','🥈','🥇'][tier||0]} Hazine! +◈${coins} +${m} Kütle`,col||'#ffbf00',2500);
+    if(S.particles){
+      burstParts(x,y,col||'#ffbf00',28);
+      for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;parts.push(new Particle(x,y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true));}
+    }
+    score+=(coins||0)*2;
+    showToast(`${['🥉','🥈','🥇'][tier||0]} Hazine! +◈${coins} +${m} Kütle`,col||'#ffbf00',2500);
   });
 
   socket.on('nova_fx',({x,y,color})=>{
-    if(S.particles){for(let i=0;i<50;i++){const a=(i/50)*Math.PI*2,s=3+Math.random()*5;parts.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,color||'#00e0ff',32,2.5+Math.random()*3));}for(let i=0;i<3;i++)parts.push(new Particle(x,y,0,0,color||'#00e0ff',45+i*8,25+i*15,true));}
+    if(S.particles){
+      for(let i=0;i<50;i++){const a=(i/50)*Math.PI*2,s=3+Math.random()*5;parts.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,color||'#00e0ff',32,2.5+Math.random()*3));}
+      for(let i=0;i<3;i++)parts.push(new Particle(x,y,0,0,color||'#00e0ff',45+i*8,25+i*15,true));
+    }
     if(S.shake)camShake=5;
   });
 
@@ -462,8 +591,10 @@ function _connectSocket(){
   });
 
   socket.on('food_eaten',ids=>{
-    const set=new Set(ids);set.forEach(id=>_foodMap.delete(id));
-    food=Array.from(_foodMap.values());sfxEat();
+    const set=new Set(ids);
+    set.forEach(id=>_foodMap.delete(id));
+    food=Array.from(_foodMap.values());
+    sfxEat();
   });
 
   socket.on('died',data=>{
@@ -478,15 +609,23 @@ function _connectSocket(){
     gameRunning=true;if(!raf)raf=requestAnimationFrame(loop);
   });
 
-  socket.on('pong_mp',()=>{_pingMs=Date.now()-_pingStart;_updatePingUI(_pingMs);setTimeout(_sendPing,3000);});
+  socket.on('pong_mp',()=>{
+    const ms=Date.now()-_pingStart;
+    _updatePingUI(ms);
+    setTimeout(_sendPing,3000);
+  });
 }
 
 window.addEventListener('resize',()=>{if(gameRunning&&gc){gc.width=innerWidth;gc.height=innerHeight;}});
 
+// ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{
   S=typeof DB!=='undefined'?DB.settings:{particles:true,shake:true,names:true,minimap:true,combo:true,quality:2,sfx:true,volume:70};
   const user=getCurrentUser();
   if(user){const ni=document.getElementById('game-nick');if(ni)ni.value=user.name;}
-  document.addEventListener('mousemove',e=>{const c=document.getElementById('cur');if(c){c.style.left=e.clientX+'px';c.style.top=e.clientY+'px';}});
+  document.addEventListener('mousemove',e=>{
+    const c=document.getElementById('cur');
+    if(c){c.style.left=e.clientX+'px';c.style.top=e.clientY+'px';}
+  });
   _connectSocket();
 });

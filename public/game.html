@@ -108,14 +108,16 @@
 <!-- Flash -->
 <div id="flash"></div>
 
-<!-- START overlay -->
+<!-- START overlay — Lobby + Karakter seçimi -->
 <div class="ov on" id="ov-start">
-  <div class="ov-box">
+  <div class="ov-box" style="max-width:520px;overflow-y:auto;max-height:90vh;">
     <div class="ov-ttl">NEBULA.io</div>
     <div class="ov-sub">KOZMİK ARENA</div>
-    <input class="nameinp" id="game-nick" placeholder="İSMİNİ GİR..." maxlength="16">
-    <div style="font-family:'Orbitron',sans-serif;font-size:.56rem;letter-spacing:3px;color:var(--dim);margin-bottom:.75rem;">ELEMENTİNİ SEÇ</div>
-    <div class="el-grid">
+    <input class="nameinp" id="game-nick" placeholder="İSMİNİ GİR..." maxlength="16" style="margin-bottom:1rem">
+
+    <!-- Element seçimi -->
+    <div style="font-family:'Orbitron',sans-serif;font-size:.56rem;letter-spacing:3px;color:var(--dim);margin-bottom:.6rem;">ELEMENTİNİ SEÇ</div>
+    <div class="el-grid" style="margin-bottom:1.2rem;">
       <div class="el-opt solar on" id="el-solar" onclick="pickEl('solar')">
         <span class="eo-ic">☀️</span><span class="eo-nm">SOLAR</span>
         <span class="eo-ab">Flare: Yakını kör eder</span>
@@ -133,27 +135,18 @@
         <span class="eo-ab">Dağıl: Mini top fırlat</span>
       </div>
     </div>
-    <div style="font-family:'Orbitron',sans-serif;font-size:.56rem;letter-spacing:3px;color:var(--dim);margin-bottom:.55rem;">HARİTA TEMASINI SEÇ</div>
-    <div id="theme-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem;margin-bottom:1.1rem;">
-      <div class="theme-opt on" id="th-nebula" onclick="pickTheme('nebula')" style="padding:.6rem .2rem;border-radius:var(--r);border:2px solid var(--cyan);background:rgba(0,224,255,.07);cursor:pointer;text-align:center;transition:all .18s">
-        <div style="font-size:1.3rem">🌌</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:1px;color:var(--cyan);margin-top:.2rem">NEBULA</div>
-      </div>
-      <div class="theme-opt" id="th-buzul" onclick="pickTheme('buzul')" style="padding:.6rem .2rem;border-radius:var(--r);border:2px solid transparent;background:rgba(0,0,0,.3);cursor:pointer;text-align:center;transition:all .18s">
-        <div style="font-size:1.3rem">❄️</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:1px;color:#88ddff;margin-top:.2rem">BUZUL</div>
-      </div>
-      <div class="theme-opt" id="th-volkan" onclick="pickTheme('volkan')" style="padding:.6rem .2rem;border-radius:var(--r);border:2px solid transparent;background:rgba(0,0,0,.3);cursor:pointer;text-align:center;transition:all .18s">
-        <div style="font-size:1.3rem">🌋</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:1px;color:#ff6600;margin-top:.2rem">VOLKAN</div>
-      </div>
-      <div class="theme-opt" id="th-neon" onclick="pickTheme('neon')" style="padding:.6rem .2rem;border-radius:var(--r);border:2px solid transparent;background:rgba(0,0,0,.3);cursor:pointer;text-align:center;transition:all .18s">
-        <div style="font-size:1.3rem">🌃</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:1px;color:#ff00cc;margin-top:.2rem">NEON ŞEHİR</div>
+
+    <!-- ODA SEÇİMİ -->
+    <div style="font-family:'Orbitron',sans-serif;font-size:.56rem;letter-spacing:3px;color:var(--dim);margin-bottom:.6rem;">ODA SEÇ</div>
+    <div id="room-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1.1rem;">
+      <!-- JS ile doldurulur -->
+      <div style="grid-column:1/-1;text-align:center;padding:.8rem;color:var(--dim);font-size:.65rem;font-family:Orbitron,sans-serif">
+        Sunucuya bağlanıyor...
       </div>
     </div>
-    <button class="btn-hero" style="width:100%;justify-content:center;" onclick="startGame()">
-      <span>▶ &nbsp;OYUNA BAŞLA</span>
+
+    <button class="btn-hero" id="btn-play" style="width:100%;justify-content:center;opacity:.5;cursor:not-allowed;" onclick="startGame()">
+      <span>▶ &nbsp;ODA SEÇ VE OYNA</span>
     </button>
     <div style="margin-top:.9rem;font-size:.65rem;color:var(--dim)">
       SPACE: Boost &nbsp;·&nbsp; Q: Nova &nbsp;·&nbsp; E: Yetenek &nbsp;·&nbsp; ESC/P: Duraklat
@@ -264,25 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-function pickTheme(name) {
-  MAP_THEME = name;
-  document.querySelectorAll('.theme-opt').forEach(e => {
-    e.style.border='2px solid transparent';
-    e.style.background='rgba(0,0,0,.3)';
-  });
-  const cols  = {nebula:'var(--cyan)',buzul:'#88ddff',volkan:'#ff6600',neon:'#ff00cc'};
-  const bgs   = {nebula:'rgba(0,224,255,.07)',buzul:'rgba(136,221,255,.08)',volkan:'rgba(255,102,0,.08)',neon:'rgba(255,0,204,.08)'};
-  const el = document.getElementById('th-' + name);
-  if(el) {
-    el.style.border=`2px solid ${cols[name]}`;
-    el.style.background=bgs[name];
-  }
-  // Update theme badge
-  const icons={nebula:'🌌',buzul:'❄️',volkan:'🌋',neon:'🌃'};
-  const names={nebula:'NEBULA',buzul:'BUZUL',volkan:'VOLKAN',neon:'NEON ŞEHİR'};
-  const badge=document.getElementById('h-theme-badge');
-  if(badge){ badge.textContent=icons[name]+' '+names[name]; badge.style.color=cols[name]; }
-}
+// pickTheme artık sunucu taraflı oda seçimi ile yönetilir
 </script>
 </body>
 </html>
