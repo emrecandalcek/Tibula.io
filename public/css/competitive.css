@@ -1,0 +1,349 @@
+/* ═══════════════════════════════════════
+   NEBULA.io — COMPETITIVE STYLES
+═══════════════════════════════════════ */
+
+body { overflow-y:auto; }
+.pg-body { padding-top:60px; }
+
+/* ─── RANK CARD ─── */
+.rank-card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r2); padding:1.8rem;
+  display:flex; align-items:center; gap:1.5rem;
+  position:relative; overflow:hidden;
+}
+.rank-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--rk-color, var(--cyan));
+  box-shadow:0 0 14px var(--rk-glow, rgba(0,224,255,.5));
+}
+.rank-card-bg {
+  position:absolute; inset:0; opacity:.04;
+  background:radial-gradient(circle at 80% 50%, var(--rk-color, var(--cyan)) 0%, transparent 65%);
+}
+.rank-icon {
+  font-size:3.8rem; line-height:1; flex-shrink:0;
+  filter:drop-shadow(0 0 12px var(--rk-glow, rgba(0,224,255,.5)));
+  animation:floatY 3s ease-in-out infinite;
+}
+.rank-info { flex:1; min-width:0; position:relative; z-index:1; }
+.rank-name {
+  font-family:'Orbitron',sans-serif; font-size:1.55rem; font-weight:900;
+  color:var(--rk-color,var(--cyan)); text-shadow:0 0 14px var(--rk-glow,rgba(0,224,255,.4));
+  letter-spacing:2px; line-height:1;
+}
+.rank-elo {
+  font-family:'Orbitron',sans-serif; font-size:.78rem;
+  color:var(--dim); letter-spacing:3px; margin:.28rem 0 .7rem;
+}
+.rank-elo strong { color:var(--txt); }
+.rank-bar { height:5px; background:rgba(255,255,255,.07); border-radius:3px; overflow:hidden; }
+.rank-fill {
+  height:100%; border-radius:3px; transition:width .9s ease;
+  background:linear-gradient(90deg, var(--rk-color,var(--cyan)), var(--purp));
+  box-shadow:0 0 6px var(--rk-color,var(--cyan));
+}
+.rank-bar-lbl { font-size:.62rem; color:var(--dim); margin-top:.28rem; letter-spacing:1px; }
+.rank-stats { display:flex; gap:.8rem; position:relative; z-index:1; flex-shrink:0; }
+.rs-box { text-align:center; }
+.rs-v { font-family:'Orbitron',sans-serif; font-size:1.3rem; font-weight:900; display:block; }
+.rs-l { font-size:.6rem; letter-spacing:2px; color:var(--dim); }
+
+/* ─── COMPETITIVE TABS ─── */
+.comp-tabs {
+  display:flex; background:rgba(0,0,0,.3); border:1px solid var(--border);
+  border-radius:var(--r2); padding:.3rem; gap:.25rem;
+  margin-bottom:1.2rem; flex-wrap:wrap;
+}
+.comp-tab {
+  flex:1; min-width:100px; padding:.55rem .5rem; border-radius:var(--r);
+  font-family:'Orbitron',sans-serif; font-size:.58rem; letter-spacing:1.5px;
+  font-weight:700; cursor:pointer; color:var(--dim); text-align:center;
+  transition:all .22s; border:1px solid transparent;
+}
+.comp-tab:hover { color:var(--txt); background:rgba(255,255,255,.03); }
+.comp-tab.on {
+  background:rgba(0,224,255,.08); border-color:var(--border2);
+  color:var(--cyan); box-shadow:0 0 12px rgba(0,224,255,.1);
+}
+
+/* ─── SECTION HEADER ─── */
+.sh { font-family:'Orbitron',sans-serif; font-size:.62rem; letter-spacing:3.5px; color:var(--dim); margin-bottom:.85rem; }
+
+/* ─── MATCHMAKING ─── */
+.mm-state { text-align:center; padding:2.2rem; }
+.mm-icon  { font-size:3rem; margin-bottom:.8rem; }
+.mm-ttl   { font-family:'Orbitron',sans-serif; font-size:1rem; letter-spacing:2px; color:var(--cyan); margin-bottom:.3rem; }
+.mm-sub   { font-size:.78rem; color:var(--dim); }
+
+/* Searching animation */
+.mm-spinner {
+  width:60px; height:60px; border-radius:50%;
+  border:3px solid rgba(0,224,255,.15); border-top-color:var(--cyan);
+  margin:0 auto 1rem; animation:spin .8s linear infinite;
+}
+.mm-dots span {
+  display:inline-block; width:8px; height:8px; border-radius:50%;
+  background:var(--cyan); margin:0 3px;
+  animation:pulse .8s ease-in-out infinite;
+}
+.mm-dots span:nth-child(2){animation-delay:.15s;}
+.mm-dots span:nth-child(3){animation-delay:.3s;}
+
+/* Opponent found card */
+.opp-card {
+  background:var(--surf2); border:1px solid var(--border2);
+  border-radius:var(--r2); padding:1.5rem;
+  display:flex; align-items:center; gap:1.2rem; margin-bottom:1rem;
+  animation:fadeInUp .35s ease;
+}
+.opp-avatar {
+  width:56px; height:56px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.5rem; border:2px solid; flex-shrink:0;
+}
+.opp-name  { font-family:'Orbitron',sans-serif; font-size:.85rem; font-weight:700; }
+.opp-rank  { font-size:.72rem; color:var(--dim); margin-top:.18rem; }
+.vs-badge  {
+  font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900;
+  color:var(--red); text-shadow:0 0 16px rgba(255,51,85,.5);
+  padding:0 .5rem;
+}
+
+/* Duel start countdown */
+.countdown-big {
+  font-family:'Orbitron',sans-serif; font-size:5rem; font-weight:900;
+  color:var(--cyan); text-shadow:0 0 40px var(--cyan);
+  animation:popIn .4s ease;
+}
+.countdown-lbl { font-family:'Orbitron',sans-serif; font-size:.7rem; letter-spacing:4px; color:var(--dim); }
+
+/* ─── DUEL HISTORY ─── */
+.duel-hist-row {
+  display:grid; grid-template-columns:auto 1fr 80px 90px 80px;
+  padding:.62rem 1rem; border-bottom:1px solid rgba(255,255,255,.03);
+  align-items:center; gap:.5rem; font-size:.75rem;
+}
+.duel-hist-row:last-child { border-bottom:none; }
+.duel-hist-row:hover { background:rgba(255,255,255,.015); }
+.duel-win  { color:var(--grn); font-family:'Orbitron',sans-serif; font-size:.6rem; font-weight:700; }
+.duel-loss { color:var(--red); font-family:'Orbitron',sans-serif; font-size:.6rem; font-weight:700; }
+
+/* ─── TOURNAMENT ─── */
+.tourn-card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r2); overflow:hidden; margin-bottom:1rem;
+  transition:border-color .2s;
+}
+.tourn-card:hover { border-color:var(--border2); }
+.tourn-head {
+  padding:1.1rem 1.3rem;
+  background:linear-gradient(90deg,rgba(0,224,255,.06),rgba(160,64,255,.06));
+  border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:flex-start;
+}
+.tourn-name { font-family:'Orbitron',sans-serif; font-size:.88rem; font-weight:700; margin-bottom:.22rem; }
+.tourn-desc { font-size:.72rem; color:var(--dim); }
+.tourn-meta { text-align:right; }
+.tourn-meta .badge { display:inline-flex; }
+.tourn-body { padding:1.1rem 1.3rem; display:flex; gap:1.5rem; flex-wrap:wrap; }
+.tourn-prize { }
+.tp-row { display:flex; align-items:center; gap:.5rem; margin-bottom:.35rem; font-size:.75rem; }
+.tp-medal { font-size:1rem; }
+.tp-val { font-family:'Orbitron',sans-serif; font-size:.7rem; color:var(--gold); font-weight:700; }
+.tourn-participants { }
+.tp-bar { height:6px; background:rgba(255,255,255,.07); border-radius:3px; overflow:hidden; margin-top:.35rem; }
+.tp-fill { height:100%; background:linear-gradient(90deg,var(--cyan),var(--purp)); border-radius:3px; }
+.timer-txt {
+  font-family:'Orbitron',sans-serif; font-size:.7rem; color:var(--gold); letter-spacing:1px; margin-top:.3rem;
+}
+
+/* ─── BRACKET ─── */
+.bracket-wrap { overflow-x:auto; padding:1rem 0; }
+.bracket {
+  display:flex; gap:0; align-items:flex-start; min-width:600px;
+}
+.bracket-round { display:flex; flex-direction:column; gap:0; flex:1; }
+.bracket-round-label {
+  font-family:'Orbitron',sans-serif; font-size:.52rem; letter-spacing:2.5px;
+  color:var(--dim); text-align:center; padding:.4rem; margin-bottom:.3rem;
+}
+.bracket-matches { display:flex; flex-direction:column; justify-content:space-around; flex:1; }
+.bm { margin:.4rem .5rem; }
+.bm-slot {
+  background:rgba(0,0,0,.4); border:1px solid var(--border); border-radius:4px;
+  padding:.35rem .65rem; font-size:.72rem; display:flex; align-items:center;
+  gap:.4rem; transition:all .2s;
+}
+.bm-slot:first-child { border-bottom:none; border-radius:4px 4px 0 0; }
+.bm-slot:last-child  { border-radius:0 0 4px 4px; }
+.bm-slot.winner { background:rgba(0,255,136,.07); border-color:rgba(0,255,136,.35); }
+.bm-slot.loser  { opacity:.45; }
+.bm-slot.is-player { background:rgba(0,224,255,.07); border-color:rgba(0,224,255,.35); }
+.bm-slot.is-player .bm-name { color:var(--cyan); font-weight:700; }
+.bm-elo { font-family:'Orbitron',sans-serif; font-size:.52rem; color:var(--dim); margin-left:auto; }
+.bm-name { flex:1; font-size:.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bm-divider { height:1px; background:rgba(255,255,255,.06); margin:0 .5rem; }
+
+/* ─── GUILDS ─── */
+.guild-hero {
+  background:linear-gradient(135deg,rgba(0,224,255,.06),rgba(160,64,255,.06));
+  border:1px solid var(--border); border-radius:var(--r2);
+  padding:1.6rem; display:flex; align-items:center; gap:1.3rem;
+}
+.guild-tag {
+  width:72px; height:72px; border-radius:var(--r); border:2px solid var(--cyan);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900;
+  color:var(--cyan); background:rgba(0,224,255,.08); flex-shrink:0;
+  text-shadow:0 0 8px rgba(0,224,255,.5);
+}
+.guild-name  { font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:700; margin-bottom:.2rem; }
+.guild-motd  { font-size:.75rem; color:var(--dim); font-style:italic; margin-bottom:.5rem; }
+.guild-stats { display:flex; gap:1rem; flex-wrap:wrap; }
+.gs-item     { font-size:.7rem; color:var(--dim); }
+.gs-item strong { color:var(--txt); font-family:'Orbitron',sans-serif; font-size:.7rem; }
+
+.guild-lb-row {
+  display:grid; grid-template-columns:40px 1fr 80px 70px 70px;
+  padding:.62rem 1rem; border-bottom:1px solid rgba(255,255,255,.03);
+  align-items:center; font-size:.75rem;
+}
+.guild-lb-row:last-child { border-bottom:none; }
+.guild-lb-row:hover { background:rgba(255,255,255,.015); }
+.guild-tag-sm {
+  font-family:'Orbitron',sans-serif; font-size:.58rem; font-weight:700;
+  background:rgba(0,224,255,.08); border:1px solid var(--border);
+  border-radius:3px; padding:.1rem .32rem; color:var(--cyan);
+}
+
+/* ─── SEASON PASS ─── */
+.season-header {
+  background:linear-gradient(135deg,rgba(160,64,255,.12),rgba(0,224,255,.06));
+  border:1px solid rgba(160,64,255,.3); border-radius:var(--r2);
+  padding:1.5rem; margin-bottom:1.2rem; position:relative; overflow:hidden;
+}
+.season-header::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg,var(--purp),var(--cyan),var(--mag));
+}
+.season-n { font-family:'Orbitron',sans-serif; font-size:.6rem; letter-spacing:4px; color:var(--dim); margin-bottom:.2rem; }
+.season-name { font-family:'Orbitron',sans-serif; font-size:1.4rem; font-weight:900; color:var(--purp); text-shadow:0 0 14px rgba(160,64,255,.4); }
+.season-pts { font-family:'Orbitron',sans-serif; font-size:.78rem; color:var(--gold); margin-top:.3rem; }
+.season-end { font-size:.7rem; color:var(--dim); margin-top:.2rem; }
+
+.season-track {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:.75rem;
+}
+.reward-card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r); padding:1rem; text-align:center;
+  position:relative; overflow:hidden; transition:all .22s;
+}
+.reward-card.unlocked { border-color:rgba(0,255,136,.3); background:rgba(0,255,136,.02); }
+.reward-card.claimed  { border-color:rgba(0,224,255,.2); opacity:.65; }
+.reward-card.locked   { opacity:.45; }
+.reward-card.current  { border-color:var(--gold); box-shadow:0 0 16px rgba(255,191,0,.2); }
+.reward-tier { font-family:'Orbitron',sans-serif; font-size:.5rem; letter-spacing:2px; color:var(--dim); margin-bottom:.4rem; }
+.reward-icon { font-size:1.8rem; margin-bottom:.4rem; }
+.reward-name { font-family:'Orbitron',sans-serif; font-size:.58rem; letter-spacing:1px; margin-bottom:.25rem; }
+.reward-pts  { font-size:.62rem; color:var(--dim); margin-bottom:.6rem; }
+.reward-btn  {
+  width:100%; padding:.32rem; border-radius:4px; border:none; cursor:pointer;
+  font-family:'Orbitron',sans-serif; font-size:.56rem; letter-spacing:1px; font-weight:700; transition:all .2s;
+}
+.reward-btn.claim   { background:linear-gradient(135deg,var(--gold),#ff9900); color:#000; }
+.reward-btn.claimed { background:rgba(0,255,136,.1); border:1px solid var(--grn); color:var(--grn); cursor:default; }
+.reward-btn.locked  { background:rgba(255,255,255,.05); border:1px solid var(--border); color:var(--dim); cursor:not-allowed; }
+.reward-excl {
+  position:absolute; top:5px; right:5px; background:rgba(160,64,255,.2);
+  border:1px solid var(--purp); border-radius:3px;
+  font-family:'Orbitron',sans-serif; font-size:.42rem; letter-spacing:1px; color:var(--purp); padding:.08rem .28rem;
+}
+
+/* ─── QUICK STATS GRID ─── */
+.comp-stats-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.75rem;
+  margin-bottom:1.2rem;
+}
+.csg-box {
+  background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:.9rem; text-align:center;
+}
+.csg-val { font-family:'Orbitron',sans-serif; font-size:1.6rem; font-weight:900; display:block; line-height:1; }
+.csg-lbl { font-size:.6rem; letter-spacing:2px; color:var(--dim); margin-top:.22rem; }
+
+/* ─── BIG CTA BUTTONS ─── */
+.mode-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem;
+  margin-bottom:1.5rem;
+}
+.mode-card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r2); padding:1.5rem; cursor:pointer;
+  transition:all .25s; position:relative; overflow:hidden; text-align:center;
+}
+.mode-card::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,transparent,rgba(0,224,255,.04));
+  opacity:0; transition:.3s;
+}
+.mode-card:hover { transform:translateY(-4px); border-color:var(--border2); }
+.mode-card:hover::after { opacity:1; }
+.mode-card-icon { font-size:2.5rem; margin-bottom:.7rem; display:block; }
+.mode-card-name { font-family:'Orbitron',sans-serif; font-size:.78rem; font-weight:700; letter-spacing:2px; margin-bottom:.35rem; }
+.mode-card-desc { font-size:.73rem; color:var(--dim); line-height:1.5; margin-bottom:.9rem; }
+.mode-card-tag  { font-family:'Orbitron',sans-serif; font-size:.55rem; letter-spacing:2px; }
+
+/* ─── RESULT OVERLAY ─── */
+.result-box { text-align:center; }
+.result-win  { font-family:'Orbitron',sans-serif; font-size:3rem; font-weight:900; color:var(--grn); text-shadow:0 0 32px var(--grn); animation:popIn .4s ease; }
+.result-loss { font-family:'Orbitron',sans-serif; font-size:3rem; font-weight:900; color:var(--red); text-shadow:0 0 32px var(--red); animation:popIn .4s ease; }
+.result-elo-change { font-family:'Orbitron',sans-serif; font-size:1.8rem; font-weight:700; margin:.5rem 0; }
+.result-new-elo { font-size:.75rem; color:var(--dim); letter-spacing:2px; }
+
+/* ─── DUEL GAME HUD ─── */
+#duel-hud {
+  position:fixed; top:0; left:0; right:0; height:56px; z-index:100;
+  background:rgba(2,2,14,.95); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 1.2rem; backdrop-filter:blur(16px);
+}
+.dh-player { display:flex; align-items:center; gap:.7rem; }
+.dh-kills {
+  font-family:'Orbitron',sans-serif; font-size:2rem; font-weight:900;
+  min-width:24px; text-align:center; transition:all .2s;
+}
+.dh-kills.bump { animation:popIn .3s ease; }
+.dh-name  { font-family:'Orbitron',sans-serif; font-size:.72rem; letter-spacing:2px; }
+.dh-mass  { font-size:.65rem; color:var(--dim); }
+.dh-timer {
+  font-family:'Orbitron',sans-serif; font-size:1.4rem; font-weight:700;
+  color:var(--gold); text-shadow:0 0 10px rgba(255,191,0,.4);
+}
+.dh-timer.low { color:var(--red); text-shadow:0 0 12px var(--red); animation:pulse 1s infinite; }
+.vs-mid { font-family:'Orbitron',sans-serif; font-size:.7rem; letter-spacing:2px; color:var(--dim); text-align:center; }
+
+/* ─── TEAM HUD ─── */
+#team-hud {
+  position:fixed; top:0; left:0; right:0; height:58px; z-index:100;
+  background:rgba(2,2,14,.95); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 1.2rem; backdrop-filter:blur(16px); gap:1rem;
+}
+.th-team { display:flex; align-items:center; gap:.7rem; flex:1; }
+.th-team.red { flex-direction:row-reverse; text-align:right; }
+.th-kills {
+  font-family:'Orbitron',sans-serif; font-size:2.2rem; font-weight:900;
+  min-width:28px; text-align:center; transition:all .15s;
+}
+.th-kills.bump { animation:popIn .25s ease; }
+.th-name { font-family:'Orbitron',sans-serif; font-size:.68rem; letter-spacing:2px; }
+.th-members { font-size:.62rem; color:var(--dim); }
+.th-timer {
+  font-family:'Orbitron',sans-serif; font-size:1.3rem; font-weight:700;
+  color:var(--gold); text-shadow:0 0 10px rgba(255,191,0,.4);
+  text-align:center; white-space:nowrap;
+}
+.th-timer.low { color:var(--red); animation:pulse .8s infinite; }
+.th-divider { font-family:'Orbitron',sans-serif; font-size:.7rem; color:var(--dim); }

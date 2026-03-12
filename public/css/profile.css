@@ -1,0 +1,136 @@
+/* ── PROFILE PAGE ── */
+body { overflow-y:auto; }
+.pg-body { padding-top:0; }  /* Reset — hero handles its own top spacing */
+
+/* Hero banner — sits directly under nav (nav is 56px tall) */
+.profile-hero {
+  background:linear-gradient(180deg, rgba(0,0,0,.3) 0%, var(--bg) 100%);
+  border-bottom:1px solid var(--border);
+  padding:2.5rem 1.5rem 2rem;
+  margin-top:56px;   /* exact nav height */
+}
+.profile-top {
+  max-width:1100px; margin:0 auto;
+  display:grid; grid-template-columns:auto 1fr auto; gap:1.5rem; align-items:start;
+}
+@media(max-width:768px) { .profile-top { grid-template-columns:1fr; } }
+
+/* Avatar */
+.p-avatar-wrap { position:relative; }
+.p-avatar {
+  width:100px; height:100px; border-radius:50%;
+  border:3px solid var(--cyan); box-shadow:0 0 22px rgba(0,224,255,.3);
+  display:flex; align-items:center; justify-content:center;
+  background:var(--surf2);
+  font-size:2.8rem; position:relative; overflow:hidden;
+}
+.p-avatar canvas { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; }
+.p-online { position:absolute; bottom:5px; right:5px; width:14px; height:14px;
+  background:var(--grn); border:2px solid var(--bg); border-radius:50%;
+  box-shadow:0 0 6px var(--grn); }
+
+/* Info */
+.p-info { }
+.p-name-row { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; margin-bottom:.5rem; }
+.p-name { font-family:'Orbitron',sans-serif; font-size:1.6rem; font-weight:900; }
+.p-role-badge { }
+.p-joined { font-size:.72rem; color:var(--dim); margin-bottom:.75rem; }
+
+/* XP Bar */
+.xp-row { display:flex; align-items:center; gap:.8rem; margin-bottom:.5rem; }
+.xp-level {
+  font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900;
+  color:var(--gold); text-shadow:0 0 10px rgba(255,191,0,.4); min-width:48px;
+}
+.xp-bar-wrap { flex:1; }
+.xp-bar {
+  height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden;
+}
+.xp-fill {
+  height:100%; background:linear-gradient(90deg, var(--gold), var(--orange));
+  border-radius:3px; transition:width .8s ease; box-shadow:0 0 6px var(--gold);
+}
+.xp-txt { font-size:.62rem; letter-spacing:2px; color:var(--dim); margin-top:.25rem; text-align:right; }
+
+/* Equipped row */
+.equipped-row { display:flex; gap:.5rem; flex-wrap:wrap; }
+.eq-chip {
+  display:flex; align-items:center; gap:.35rem;
+  background:rgba(0,224,255,.06); border:1px solid var(--border);
+  border-radius:4px; padding:.25rem .6rem; font-size:.65rem;
+}
+.eq-chip canvas { width:18px; height:18px; border-radius:50%; display:block; }
+.eq-chip span:last-child { color:var(--dim); }
+
+/* Right side: quick stats */
+.p-quick-stats { display:flex; flex-direction:column; gap:.5rem; min-width:180px; }
+.qs-row {
+  background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:.6rem .9rem; display:flex; justify-content:space-between; align-items:center;
+}
+.qs-lbl { font-size:.66rem; color:var(--dim); }
+.qs-val { font-family:'Orbitron',sans-serif; font-size:.9rem; font-weight:700; }
+
+/* ─ Stats grid ─ */
+.stats-grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:.8rem;
+}
+.stat-box {
+  background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:1.1rem; text-align:center;
+}
+.stat-box-val {
+  font-family:'Orbitron',sans-serif; font-size:1.65rem; font-weight:900;
+  display:block; margin-bottom:.25rem; line-height:1;
+}
+.stat-box-lbl { font-size:.6rem; letter-spacing:2.5px; color:var(--dim); text-transform:uppercase; }
+
+/* ─ Element breakdown ─ */
+.el-breakdown { display:grid; grid-template-columns:repeat(4,1fr); gap:.85rem; }
+@media(max-width:640px) { .el-breakdown { grid-template-columns:repeat(2,1fr); } }
+.elb-card {
+  background:var(--surf); border:1px solid var(--border); border-radius:var(--r2);
+  padding:1.1rem; text-align:center;
+}
+.elb-icon { font-size:1.5rem; margin-bottom:.4rem; }
+.elb-name { font-family:'Orbitron',sans-serif; font-size:.62rem; letter-spacing:2px; font-weight:700; margin-bottom:.6rem; }
+.elb-stat { font-size:.72rem; color:var(--dim); margin-bottom:.18rem; }
+.elb-stat span { font-family:'Orbitron',sans-serif; font-size:.72rem; font-weight:700; }
+
+/* ─ Achievements ─ */
+.ach-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:.8rem; }
+.ach-card {
+  background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:1rem; display:flex; align-items:center; gap:.75rem;
+  transition:all .2s;
+}
+.ach-card.unlocked { border-color:rgba(255,191,0,.3); background:rgba(255,191,0,.03); }
+.ach-card.locked   { opacity:.45; }
+.ach-icon { font-size:1.6rem; min-width:32px; text-align:center; }
+.ach-nm { font-family:'Orbitron',sans-serif; font-size:.66rem; letter-spacing:1.5px; font-weight:700; margin-bottom:.18rem; }
+.ach-desc { font-size:.68rem; color:var(--dim); line-height:1.4; }
+.ach-xp { font-family:'Orbitron',sans-serif; font-size:.56rem; color:var(--gold); margin-top:.2rem; }
+
+/* ─ Game History ─ */
+.history-row {
+  display:grid; grid-template-columns:auto 1fr 100px 80px 80px 80px;
+  padding:.7rem 1.1rem; border-bottom:1px solid rgba(255,255,255,.03);
+  align-items:center; font-size:.78rem; gap:.5rem;
+}
+.history-row:last-child { border-bottom:none; }
+.history-row:hover { background:rgba(255,255,255,.015); }
+.hr-el { font-size:1rem; }
+.hr-score { font-family:'Orbitron',sans-serif; font-size:.78rem; font-weight:700; color:var(--cyan); }
+.hr-kill  { color:var(--red); font-family:'Orbitron',sans-serif; font-size:.72rem; }
+.hr-time  { color:var(--gold); font-family:'Orbitron',sans-serif; font-size:.68rem; }
+.hr-ago   { color:var(--dim); font-size:.65rem; }
+
+/* Daily streak */
+.streak-row { display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.6rem; }
+.streak-day {
+  width:32px; height:32px; border-radius:5px; border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:.9rem; background:rgba(0,0,0,.3);
+}
+.streak-day.done { background:rgba(255,191,0,.15); border-color:rgba(255,191,0,.4); }
+.streak-day.today { background:rgba(255,191,0,.25); border-color:var(--gold); box-shadow:0 0 8px rgba(255,191,0,.3); }

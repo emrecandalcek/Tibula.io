@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Mağaza</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/shop.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl" data-pg="guide.html" onclick="goPage('guide.html')">REHBERİ</div>
+    <div class="nl" data-pg="leaderboard.html" onclick="goPage('leaderboard.html')">LİDERLİK</div>
+    <div class="nl" data-pg="competitive.html" onclick="goPage('competitive.html')">⚔️ ARENA</div>
+    <div class="nl on" data-pg="shop.html" onclick="goPage('shop.html')">MAĞAZA</div>
+    <div class="nl" data-pg="settings.html" onclick="goPage('settings.html')">AYARLAR</div>
+    <div class="nl" data-pg="admin.html" onclick="goPage('admin.html')" id="nav-admin-nl" style="display:none">ADMİN</div>
+  </div>
+  <div class="nav-right" id="nav-right">
+    <div class="nav-coins" id="nav-coins" style="display:none">
+      <span>◈</span><span id="nav-coin-val">0</span>
+    </div>
+    <div id="nav-user-area"></div>
+  </div>
+</nav>
+
+<div class="pg-body">
+  <div class="content" style="max-width:1280px;padding-top:1.5rem;">
+    <div class="page-hdr">
+      <div class="page-ttl">MAĞAZA</div>
+      <div class="page-sub">KOZMETİKLERİ SATINAL · OYUNDA KULLAN</div>
+    </div>
+
+    <!-- Guest notice -->
+    <div id="guest-notice" style="display:none;background:rgba(255,191,0,.07);border:1px solid rgba(255,191,0,.3);border-radius:var(--r);padding:.8rem 1.2rem;margin-bottom:1.2rem;font-size:.8rem;color:var(--gold);">
+      🔒 Satın almak için <a onclick="goPage('login.html')" style="color:var(--cyan);cursor:pointer;text-decoration:underline;">giriş yapman</a> gerekiyor.
+    </div>
+
+    <div class="shop-top">
+      <div class="shop-tabs">
+        <div class="sht on" onclick="shopTab(this,'skins')">GÖRÜNÜMLER</div>
+        <div class="sht" onclick="shopTab(this,'trails')">İZLER</div>
+        <div class="sht" onclick="shopTab(this,'effects')">EFEKTLER</div>
+      </div>
+      <div class="coin-disp">
+        <span>◈</span><span id="shop-coin-val">0</span>
+      </div>
+    </div>
+
+    <div class="shop-grid" id="shop-grid">
+      <!-- populated by JS -->
+    </div>
+
+    <!-- How to earn coins -->
+    <div style="margin-top:2.5rem;background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:.65rem;letter-spacing:3px;color:var(--cyan);margin-bottom:1rem;">◈ ALTIN NASIL KAZANILIR?</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.85rem;">
+        <div style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:var(--r);padding:1rem;text-align:center;">
+          <div style="font-size:1.6rem;margin-bottom:.5rem;">🎮</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.62rem;color:var(--cyan);margin-bottom:.3rem;">OYNA</div>
+          <div style="font-size:.72rem;color:var(--dim);">Her 100 skordan 1 altın</div>
+        </div>
+        <div style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:var(--r);padding:1rem;text-align:center;">
+          <div style="font-size:1.6rem;margin-bottom:.5rem;">💀</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.62rem;color:var(--cyan);margin-bottom:.3rem;">ÖLDÜR</div>
+          <div style="font-size:.72rem;color:var(--dim);">Her öldürmede 5 altın</div>
+        </div>
+        <div style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:var(--r);padding:1rem;text-align:center;">
+          <div style="font-size:1.6rem;margin-bottom:.5rem;">🎁</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.62rem;color:var(--cyan);margin-bottom:.3rem;">GÜNLÜK BONUS</div>
+          <div style="font-size:.72rem;color:var(--dim);">100–500 altın/gün</div>
+        </div>
+        <div style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:var(--r);padding:1rem;text-align:center;">
+          <div style="font-size:1.6rem;margin-bottom:.5rem;">🏅</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.62rem;color:var(--cyan);margin-bottom:.3rem;">BAŞARILAR</div>
+          <div style="font-size:.72rem;color:var(--dim);">XP + bonus altın</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Item detail modal -->
+<div class="ov" id="item-modal">
+  <div class="ov-box" style="max-width:340px;">
+    <canvas id="modal-canvas" width="120" height="120" style="display:block;margin:0 auto .9rem;border-radius:50%;"></canvas>
+    <div class="ov-ttl" id="modal-name" style="font-size:1.2rem;">—</div>
+    <div class="ov-sub" id="modal-rar">COMMON</div>
+    <p id="modal-desc" style="font-size:.78rem;color:var(--dim);line-height:1.6;margin-bottom:1.4rem;">—</p>
+    <div style="display:flex;gap:.7rem;">
+      <button id="modal-action-btn" class="btn-hero" style="flex:1;padding:.85rem;"><span>◈ SATIN AL</span></button>
+      <button class="btn-ghost" onclick="closeModal()" style="flex:.6;font-size:.72rem;letter-spacing:2px;">KAPAT</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/shop.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = getCurrentUser();
+  if (!user) document.getElementById('guest-notice').style.display = 'block';
+  renderShop('skins');
+});
+
+let modalItem = null, modalTab = null, modalRaf = null;
+function openItemModal(id, tab) {
+  const item = SHOP_DATA[tab].find(x => x.id === id);
+  if (!item) return;
+  modalItem = item; modalTab = tab;
+  document.getElementById('modal-name').textContent = item.name;
+  document.getElementById('modal-rar').textContent = item.rar;
+  document.getElementById('modal-desc').textContent = item.desc;
+
+  const inv = getUserInv(tab);
+  const owned = inv.owned.includes(id);
+  const equipped = inv.equipped === id;
+  const btn = document.getElementById('modal-action-btn');
+  if (equipped) { btn.innerHTML='<span>✓ KULLANILIYOR</span>'; btn.onclick=null; }
+  else if (owned){ btn.innerHTML='<span>KULLAN</span>'; btn.onclick=()=>{equipItem(id,tab);closeModal();}; }
+  else { btn.innerHTML=`<span>◈ ${item.price.toLocaleString()} SATIN AL</span>`; btn.onclick=()=>{buyItem(id,tab);closeModal();}; }
+
+  // Preview on modal canvas
+  if (modalRaf) cancelAnimationFrame(modalRaf);
+  const canvas = document.getElementById('modal-canvas');
+  const ctx = canvas.getContext('2d');
+  if (tab === 'skins') startModalSkinPreview(ctx, item, 120, 120);
+  else if (tab === 'trails') startModalTrailPreview(item, canvas, ctx, 120, 120);
+  else if (tab === 'effects') startModalEffectPreview(item, canvas, ctx, 120, 120);
+
+  document.getElementById('item-modal').classList.add('on');
+}
+function closeModal() {
+  if (modalRaf) cancelAnimationFrame(modalRaf);
+  document.getElementById('item-modal').classList.remove('on');
+}
+function startModalSkinPreview(ctx, item, W, H) {
+  const cx=W/2, cy=H/2;
+  function frame() {
+    modalRaf = requestAnimationFrame(frame);
+    ctx.clearRect(0,0,W,H);
+    const t=Date.now()*.001, p=1+.04*Math.sin(t*2), r=42*p, color=item.color;
+    ctx.globalAlpha=.22; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(cx,cy,r*1.8,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+    const bg=ctx.createRadialGradient(cx-r*.25,cy-r*.25,0,cx,cy,r);
+    bg.addColorStop(0,lightenHex(color,.55)); bg.addColorStop(.5,color); bg.addColorStop(1,darkenHex(color,.38));
+    ctx.fillStyle=bg; ctx.shadowColor=color; ctx.shadowBlur=16;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+    const hl=ctx.createRadialGradient(cx-r*.3,cy-r*.3,0,cx-r*.3,cy-r*.3,r*.55);
+    hl.addColorStop(0,'rgba(255,255,255,.35)'); hl.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=hl; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  }
+  modalRaf = requestAnimationFrame(frame);
+}
+function startModalTrailPreview(item, canvas, ctx, W, H) {
+  const pts=[], cx=W/2, cy=H/2;
+  function frame() {
+    modalRaf = requestAnimationFrame(frame);
+    ctx.clearRect(0,0,W,H);
+    const t=Date.now()*.001, angle=t*1.4;
+    const ox=cx+Math.cos(angle)*32, oy=cy+Math.sin(angle)*32;
+    pts.unshift({x:ox,y:oy}); if(pts.length>25) pts.pop();
+    pts.forEach((p,i)=>{
+      const a=(1-i/pts.length)*.75, sz=Math.max(.5,5*(1-i/pts.length));
+      ctx.globalAlpha=a;
+      if(item.trailType==='rainbow') ctx.fillStyle=`hsl(${(t*80+i*12)%360},100%,65%)`;
+      else if(item.trailType==='fire') ctx.fillStyle=i%2===0?'#ff8800':'#ff4400';
+      else if(item.trailType==='stars') ctx.fillStyle='#ffbf00';
+      else if(item.trailType==='void') ctx.fillStyle=i%2===0?'#a040ff':'#6600cc';
+      else if(item.trailType==='plasma') ctx.fillStyle=i%2===0?'#00e0ff':'#0088ff';
+      else if(item.trailType==='neon') ctx.fillStyle='#00ff88';
+      else if(item.trailType==='ice') ctx.fillStyle=i%2===0?'#00ccff':'#88eeff';
+      else ctx.fillStyle=item.color||'#aaa';
+      ctx.beginPath(); ctx.arc(p.x,p.y,sz,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    const g=ctx.createRadialGradient(ox-4,oy-4,0,ox,oy,12);
+    g.addColorStop(0,'#fff'); g.addColorStop(.5,item.color||'#00e0ff'); g.addColorStop(1,darkenHex(item.color||'#00e0ff',.3));
+    ctx.fillStyle=g; ctx.shadowColor=item.color||'#00e0ff'; ctx.shadowBlur=10;
+    ctx.beginPath(); ctx.arc(ox,oy,12,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+  }
+  modalRaf = requestAnimationFrame(frame);
+}
+function startModalEffectPreview(item, canvas, ctx, W, H) {
+  const cx=W/2,cy=H/2,r=28,color='#00e0ff';
+  function frame() {
+    modalRaf=requestAnimationFrame(frame);
+    ctx.clearRect(0,0,W,H);
+    const t=Date.now()*.001;
+    // base orb
+    ctx.globalAlpha=.2; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(cx,cy,r*2,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+    const bg=ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
+    bg.addColorStop(0,lightenHex(color,.5)); bg.addColorStop(.5,color); bg.addColorStop(1,darkenHex(color,.35));
+    ctx.fillStyle=bg; ctx.shadowColor=color; ctx.shadowBlur=12;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+    // effects
+    if(item.effectType==='sparkle'){
+      for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2+t*2,ex=cx+Math.cos(a)*(r+8),ey=cy+Math.sin(a)*(r+8),b=.5+.5*Math.sin(t*4+i*1.1);ctx.globalAlpha=b;ctx.fillStyle='#ffee44';ctx.beginPath();ctx.arc(ex,ey,3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+    }else if(item.effectType==='orbit'){
+      ctx.save();ctx.translate(cx,cy);ctx.rotate(t*1.2);ctx.strokeStyle='rgba(68,153,255,.65)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,0,r*1.6,r*.5,0,0,Math.PI*2);ctx.stroke();
+      const da=t*2.5,dx=Math.cos(da)*r*1.6,dy=Math.sin(da)*r*.5;ctx.fillStyle='#4499ff';ctx.shadowColor='#4499ff';ctx.shadowBlur=8;ctx.beginPath();ctx.arc(dx,dy,4,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.restore();
+    }else if(item.effectType==='crown'){ctx.font='30px serif';ctx.textAlign='center';ctx.shadowColor='#ffbf00';ctx.shadowBlur=12;ctx.fillText('👑',cx,cy-r-2);ctx.shadowBlur=0;}
+    else if(item.effectType==='flame'){for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2+t,fr=r+8+Math.sin(t*4+i)*4;ctx.globalAlpha=.45;ctx.fillStyle=i%2===0?'#ff6600':'#ff9900';ctx.beginPath();ctx.arc(cx+Math.cos(a)*fr,cy+Math.sin(a)*fr,4.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}}
+    else if(item.effectType==='electric'){for(let i=0;i<5;i++){const a=(i/5)*Math.PI*2+t*3,p2=.5+.5*Math.sin(t*5+i);ctx.globalAlpha=p2;ctx.strokeStyle='#00ccff';ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r+2),cy+Math.sin(a)*(r+2));const ma=a+.3+Math.sin(t*8)*.2;ctx.lineTo(cx+Math.cos(ma)*(r+16),cy+Math.sin(ma)*(r+16));ctx.stroke();ctx.globalAlpha=1;}}
+    else if(item.effectType==='nebula'){for(let i=0;i<14;i++){const a=(i/14)*Math.PI*2+t*.5,nr=r+8+Math.sin(t*2+i*.5)*5;ctx.globalAlpha=.25;ctx.fillStyle=`hsl(${290+i*10},100%,65%)`;ctx.beginPath();ctx.arc(cx+Math.cos(a)*nr,cy+Math.sin(a)*nr,5.5,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;}
+    else if(item.effectType==='shield'){const sp=.5+.5*Math.sin(t*2.5);ctx.strokeStyle=`rgba(0,224,255,${.3+.3*sp})`;ctx.lineWidth=3;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(cx,cy,r+6+sp*3,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
+  }
+  modalRaf=requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>

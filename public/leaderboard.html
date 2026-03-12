@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Liderlik Tablosu</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl" data-pg="guide.html" onclick="goPage('guide.html')">REHBERİ</div>
+    <div class="nl on" data-pg="leaderboard.html">LİDERLİK</div>
+    <div class="nl" data-pg="competitive.html" onclick="goPage('competitive.html')">⚔️ ARENA</div>
+    <div class="nl" data-pg="shop.html" onclick="goPage('shop.html')">MAĞAZA</div>
+    <div class="nl" data-pg="settings.html" onclick="goPage('settings.html')">AYARLAR</div>
+    <div class="nl" data-pg="admin.html" onclick="goPage('admin.html')" id="nav-admin-nl" style="display:none">ADMİN</div>
+  </div>
+  <div class="nav-right" id="nav-right">
+    <div class="nav-coins" id="nav-coins" style="display:none"><span>◈</span><span id="nav-coin-val">0</span></div>
+    <div id="nav-user-area"></div>
+  </div>
+</nav>
+
+<div style="overflow-y:auto;height:100vh;padding-top:60px;">
+  <div class="content">
+    <div class="page-hdr">
+      <div class="page-ttl">LİDERLİK TABLOSU</div>
+      <div class="page-sub">EN İYİ KOZMİK AVCILARI</div>
+    </div>
+
+    <div class="lb-tabs">
+      <div class="lbt on" onclick="lbTab(this,'all')">TÜM ZAMANLAR</div>
+      <div class="lbt" onclick="lbTab(this,'week')">BU HAFTA</div>
+      <div class="lbt" onclick="lbTab(this,'day')">BUGÜN</div>
+      <div class="lbt" onclick="lbTab(this,'kills')">ÖLDÜRMELER</div>
+    </div>
+
+    <div class="lb-table">
+      <div class="lb-head">
+        <span>#</span><span>OYUNCU</span><span>SKOR</span><span>ÖLDÜRME</span><span>SÜRE</span>
+      </div>
+      <div id="lb-body"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script>
+const LB_MOCK = [
+  {name:'StarDevil', el:'void',   score:482300, kills:574, time:'9:14:33', color:'#a040ff'},
+  {name:'CosmicRay', el:'plasma', score:371200, kills:320, time:'7:52:10', color:'#00e0ff'},
+  {name:'NovaBurst', el:'solar',  score:298750, kills:255, time:'5:38:22', color:'#ffbf00'},
+  {name:'DarkMatter',el:'void',   score:245100, kills:198, time:'4:22:55', color:'#a040ff'},
+  {name:'Stellar_X', el:'nebula', score:198400, kills:176, time:'3:08:11', color:'#ff00d4'},
+  {name:'Quasar99',  el:'plasma', score:176300, kills:148, time:'2:58:44', color:'#00e0ff'},
+  {name:'PlasmaBolt',el:'plasma', score:154800, kills:124, time:'2:42:33', color:'#4499ff'},
+  {name:'NebulaKing',el:'nebula', score:132600, kills:110, time:'2:18:22', color:'#ff00d4'},
+  {name:'AstroFury', el:'solar',  score:118200, kills:95,  time:'1:54:10', color:'#ffbf00'},
+  {name:'VoidWalker',el:'void',   score:98700,  kills:78,  time:'1:38:55', color:'#a040ff'},
+];
+
+function buildLB(sort = 'score') {
+  const EL_COL = {solar:'#ffbf00',plasma:'#00e0ff',void:'#a040ff',nebula:'#ff00d4'};
+  const realUsers = DB.users.filter(u=>!u.banned&&(u.score>0||u.kills>0));
+  const combined = [...LB_MOCK, ...realUsers.map(u=>{
+    const byEl = u.stats?.byElement || {};
+    let topEl = 'plasma', topScore = -1;
+    Object.entries(byEl).forEach(([el, d]) => { if((d.score||0) > topScore){ topScore=d.score||0; topEl=el; } });
+    return { name:u.name, el:topEl, score:u.score||0, kills:u.kills||0,
+      time: formatTime(u.playtime||0), color:EL_COL[topEl]||'#00e0ff', isReal:true };
+  })].sort((a,b) => sort==='kills' ? b.kills-a.kills : b.score-a.score);
+
+  const body = document.getElementById('lb-body');
+  const EL_IC = {solar:'☀️',plasma:'⚡',void:'🌑',nebula:'🌸'};
+  const cur = getCurrentUser();
+  body.innerHTML = combined.map((p,i) => {
+    const pos = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    const pc  = i===0?'p1':i===1?'p2':i===2?'p3':'';
+    const isYou = cur && p.isReal && p.name === cur.name;
+    return `<div class="lb-row ${i<3?'r'+(i+1):''}" style="${isYou?'background:rgba(0,224,255,.05);':''}" onclick="goPage('profile.html')">
+      <div class="lb-pos ${pc}">${pos}</div>
+      <div class="lb-player">
+        <div class="lb-av" style="border-color:${p.color};background:${p.color}22">${EL_IC[p.el]}</div>
+        <div>
+          <span class="lb-pn">${p.name}${isYou?` <span style="color:var(--cyan);font-size:.55rem">(sen)</span>`:''}${p.isReal&&p.name!==cur?.name?' <span style="font-size:.5rem;color:var(--grn)">●</span>':''}</span>
+          <span class="lb-pe">${p.el?.toUpperCase()}</span>
+        </div>
+      </div>
+      <div class="lb-d sc">${(p.score||0).toLocaleString()}</div>
+      <div class="lb-d ki">${(p.kills||0).toLocaleString()}</div>
+      <div class="lb-d ti">${p.time}</div>
+    </div>`;
+  }).join('');
+}
+
+function lbTab(el, t) {
+  document.querySelectorAll('.lbt').forEach(x => x.classList.remove('on'));
+  el.classList.add('on');
+  buildLB(t === 'kills' ? 'kills' : 'score');
+}
+
+document.addEventListener('DOMContentLoaded', () => buildLB());
+</script>
+</body>
+</html>

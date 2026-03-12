@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Kayıt Ol</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl on" data-pg="register.html">KAYIT OL</div>
+  </div>
+  <div class="nav-right" id="nav-right"><div id="nav-user-area"></div></div>
+</nav>
+
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="auth-logo">NEBULA.io</div>
+    <div class="auth-sub">YENİ HESAP OLUŞTUR</div>
+    <div class="auth-err" id="reg-err"></div>
+    <div class="fld"><label>KULLANICI ADI</label><input type="text" id="rg-user" placeholder="3–16 karakter" maxlength="16" autofocus></div>
+    <div class="fld"><label>E-POSTA</label><input type="email" id="rg-mail" placeholder="email@örnek.com"></div>
+    <div class="fld"><label>ŞİFRE</label><input type="password" id="rg-pass" placeholder="en az 6 karakter"></div>
+    <div class="fld"><label>ŞİFRE (TEKRAR)</label><input type="password" id="rg-pass2" placeholder="şifreyi tekrar gir" onkeydown="if(event.key==='Enter')doRegister()"></div>
+    <div style="margin-bottom:1rem;padding:.7rem;background:rgba(0,224,255,.04);border:1px solid var(--border);border-radius:var(--r);font-size:.72rem;color:var(--dim);">
+      🎁 Kayıt bonusu: <strong style="color:var(--gold)">500 ◈</strong> başlangıç altını!
+    </div>
+    <button class="auth-btn" onclick="doRegister()">HESAP OLUŞTUR</button>
+    <div class="auth-link">Hesabın var mı? <a onclick="goPage('login.html')">Giriş Yap</a></div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script>
+function doRegister() {
+  const name  = document.getElementById('rg-user').value.trim();
+  const email = document.getElementById('rg-mail').value.trim();
+  const pass  = document.getElementById('rg-pass').value;
+  const pass2 = document.getElementById('rg-pass2').value;
+  const err   = document.getElementById('reg-err');
+  err.classList.remove('on');
+  if (name.length < 3)  { err.textContent = 'Kullanıcı adı en az 3 karakter.'; err.classList.add('on'); return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(name)) { err.textContent = 'Sadece harf, rakam ve _ kullanılabilir.'; err.classList.add('on'); return; }
+  if (pass.length < 6)  { err.textContent = 'Şifre en az 6 karakter.'; err.classList.add('on'); return; }
+  if (pass !== pass2)   { err.textContent = 'Şifreler eşleşmiyor.'; err.classList.add('on'); return; }
+  const users = DB.users;
+  if (users.find(u => u.name.toLowerCase() === name.toLowerCase())) {
+    err.textContent = 'Bu kullanıcı adı zaten alınmış.'; err.classList.add('on'); return;
+  }
+  const newUser = {
+    id: 'u' + Date.now(), name, email, pass, role: 'user',
+    coins: 500, xp: 0, level: 1,
+    score: 0, kills: 0, playtime: 0, gamesPlayed: 0,
+    banned: false, createdAt: Date.now(), lastLogin: Date.now(),
+    dailyStreak: 0, lastDailyLogin: '',
+    inventory: { skins:['default'], trails:['none'], effects:['none_e'] },
+    equipped: { skin:'default', trail:'none', effect:'none_e' },
+    achievements: [], gameHistory: [],
+    stats: { byElement: { solar:{kills:0,score:0}, plasma:{kills:0,score:0}, void:{kills:0,score:0}, nebula:{kills:0,score:0} } }
+  };
+  users.push(newUser);
+  DB.users = users;
+  DB.session = newUser.id;
+  goPage('index.html');
+}
+</script>
+</body>
+</html>

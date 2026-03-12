@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Giriş Yap</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl on" data-pg="login.html">GİRİŞ YAP</div>
+  </div>
+  <div class="nav-right" id="nav-right"><div id="nav-user-area"></div></div>
+</nav>
+
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="auth-logo">NEBULA.io</div>
+    <div class="auth-sub">HESABINA GİRİŞ YAP</div>
+    <div class="auth-err" id="login-err"></div>
+    <div class="fld"><label>KULLANICI ADI</label><input type="text" id="li-user" placeholder="kullanıcı adı" autofocus></div>
+    <div class="fld"><label>ŞİFRE</label><input type="password" id="li-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="auth-btn" onclick="doLogin()">GİRİŞ YAP</button>
+    <div class="divider"></div>
+    <div style="background:rgba(0,224,255,.04);border:1px solid var(--border);border-radius:var(--r);padding:.9rem;font-size:.72rem;color:var(--dim);margin-bottom:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:.58rem;letter-spacing:2px;color:var(--cyan);margin-bottom:.5rem;">TEST HESAPLARI</div>
+      <div>Admin: <strong style="color:var(--txt)">Admin</strong> / <strong style="color:var(--txt)">admin123</strong></div>
+      <div>Oyuncu: <strong style="color:var(--txt)">StarDevil</strong> / <strong style="color:var(--txt)">test123</strong></div>
+    </div>
+    <div class="auth-link">Hesabın yok mu? <a onclick="goPage('register.html')">Kayıt Ol</a></div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script>
+function doLogin() {
+  const name = document.getElementById('li-user').value.trim();
+  const pass = document.getElementById('li-pass').value;
+  const err  = document.getElementById('login-err');
+  err.classList.remove('on');
+  if (!name || !pass) { err.textContent = 'Tüm alanları doldur.'; err.classList.add('on'); return; }
+  const user = DB.users.find(u => u.name.toLowerCase() === name.toLowerCase() && u.pass === pass);
+  if (!user)  { err.textContent = 'Kullanıcı adı veya şifre hatalı.'; err.classList.add('on'); return; }
+  if (user.banned) { err.textContent = 'Bu hesap banlı. Yöneticiyle iletişime geç.'; err.classList.add('on'); return; }
+  user.lastLogin = Date.now();
+  saveUser(user);
+  DB.session = user.id;
+  goPage('index.html');
+}
+</script>
+</body>
+</html>

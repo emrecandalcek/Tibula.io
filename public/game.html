@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Oyna</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+<canvas id="gc"></canvas>
+
+<div id="cur" style="display:none;">
+  <div class="cur-ring"></div>
+  <div class="cur-dot"></div>
+</div>
+
+<!-- PAUSE OVERLAY -->
+<div class="ov" id="ov-pause">
+  <div class="ov-box" style="max-width:380px;text-align:center">
+    <div style="font-size:2.5rem;margin-bottom:.6rem">⏸️</div>
+    <div class="ov-ttl" style="font-size:1.4rem;margin-bottom:.25rem">DURAKLANDI</div>
+    <div style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:3px;color:var(--dim);margin-bottom:1.6rem">OYUN DURAKLATILDI</div>
+    <div style="display:flex;flex-direction:column;gap:.65rem;">
+      <button class="btn-hero" style="justify-content:center;padding:.85rem" onclick="resumeGame()"><span>▶ DEVAM ET</span></button>
+      <button class="btn btn-red" onclick="exitToHome()" style="padding:.75rem;margin-top:.3rem">🏠 ANA SAYFA</button>
+    </div>
+    <div style="margin-top:1rem;font-size:.62rem;color:var(--dim)">ESC veya P — devam et</div>
+  </div>
+</div>
+
+<!-- HUD: Top Left -->
+<div class="hud" id="h-tl">
+  <div class="glass">
+    <div class="hud-lbl">KÜTLE</div>
+    <div class="hud-val" id="h-mass">10</div>
+    <div class="mass-bar"><div class="mass-fill" id="mfill" style="width:5%"></div></div>
+    <div id="h-elbadge" class="el-badge solar" style="margin-top:.28rem">☀️ SOLAR</div>
+    <div id="h-theme-badge" style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:1.5px;color:var(--cyan);margin-top:.2rem;opacity:.75">🌌 NEBULA</div>
+  </div>
+  <div class="glass">
+    <div class="hud-lbl">SKOR</div>
+    <div class="hud-val" id="h-score">0</div>
+  </div>
+  <div class="glass" id="ping-box" style="padding:.35rem .7rem">
+    <div class="hud-lbl">PING</div>
+    <div id="h-ping" style="font-family:'Orbitron',sans-serif;font-size:.75rem;color:var(--grn)">--ms</div>
+  </div>
+</div>
+
+<!-- HUD: Top Right -->
+<div class="hud" id="h-tr">
+  <div class="glass" id="lb-hud">
+    <div class="lbh-ttl">🏆 LİDERLİK</div>
+    <div id="lbh-list"></div>
+  </div>
+</div>
+
+<!-- HUD: Bottom Left (abilities) -->
+<div class="hud" id="h-bl">
+  <div id="ab-bar">
+    <div class="ab rdy" id="ab-boost" onclick="doBoost()">
+      <div class="ai">☄️</div><div class="ak">SPACE</div>
+      <div class="ab-cd" id="ab-boost-cd">0</div>
+    </div>
+    <div class="ab rdy" id="ab-nova" onclick="doNova()">
+      <div class="ai">💥</div><div class="ak">Q / RMB</div>
+      <div class="ab-cd" id="ab-nova-cd">0</div>
+    </div>
+    <div class="ab rdy" id="ab-spec" onclick="doSpecial()">
+      <div class="ai" id="ab-spec-ico">✨</div><div class="ak">E</div>
+      <div class="ab-cd" id="ab-spec-cd">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- HUD: Bottom Right (minimap) -->
+<div class="hud" id="h-br">
+  <div class="glass" id="mm-wrap">
+    <canvas id="mm" width="148" height="148"></canvas>
+    <div class="mm-lbl">MİNİ HARİTA</div>
+  </div>
+</div>
+
+<!-- Online sayaç -->
+<div id="online-count" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:2px;color:var(--dim);background:rgba(0,0,0,.6);padding:.3rem .8rem;border-radius:20px;border:1px solid var(--border);pointer-events:none">
+  <span style="color:var(--grn)">●</span> <span id="online-num">0</span> OYUNCU ONLİNE
+</div>
+
+<!-- Kill feed -->
+<div id="kf"></div>
+
+<!-- Combo -->
+<div id="combo">
+  <div class="combo-n" id="combo-n">x2</div>
+  <div class="combo-t">KOMBİ!</div>
+</div>
+
+<!-- Flash -->
+<div id="flash"></div>
+
+<!-- Bağlantı ekranı -->
+<div class="ov on" id="ov-connecting">
+  <div class="ov-box" style="text-align:center;max-width:400px">
+    <div style="font-size:2rem;margin-bottom:.8rem">🛰️</div>
+    <div class="ov-ttl" style="font-size:1.4rem">NEBULA.io</div>
+    <div class="ov-sub" id="conn-status">Sunucuya bağlanıyor...</div>
+    <div style="margin-top:1.5rem;display:flex;justify-content:center;gap:.4rem">
+      <div style="width:8px;height:8px;background:var(--cyan);border-radius:50%;animation:pulse 1s infinite"></div>
+      <div style="width:8px;height:8px;background:var(--cyan);border-radius:50%;animation:pulse 1s .2s infinite"></div>
+      <div style="width:8px;height:8px;background:var(--cyan);border-radius:50%;animation:pulse 1s .4s infinite"></div>
+    </div>
+  </div>
+</div>
+
+<!-- START overlay -->
+<div class="ov" id="ov-start">
+  <div class="ov-box">
+    <div class="ov-ttl">NEBULA.io</div>
+    <div class="ov-sub">KOZMİK ARENA — CANLI</div>
+    <input class="nameinp" id="game-nick" placeholder="İSMİNİ GİR..." maxlength="16">
+    <div style="font-family:'Orbitron',sans-serif;font-size:.56rem;letter-spacing:3px;color:var(--dim);margin-bottom:.75rem;">ELEMENTİNİ SEÇ</div>
+    <div class="el-grid">
+      <div class="el-opt solar on" id="el-solar" onclick="pickEl('solar')">
+        <span class="eo-ic">☀️</span><span class="eo-nm">SOLAR</span>
+        <span class="eo-ab">Flare: Yakını kör eder</span>
+      </div>
+      <div class="el-opt plasma" id="el-plasma" onclick="pickEl('plasma')">
+        <span class="eo-ic">⚡</span><span class="eo-nm">PLASMA</span>
+        <span class="eo-ab">Zincir: Yemleri çeker</span>
+      </div>
+      <div class="el-opt void" id="el-void" onclick="pickEl('void')">
+        <span class="eo-ic">🌑</span><span class="eo-nm">VOID</span>
+        <span class="eo-ab">Faz: 2sn dokunulmaz</span>
+      </div>
+      <div class="el-opt nebula" id="el-nebula" onclick="pickEl('nebula')">
+        <span class="eo-ic">🌸</span><span class="eo-nm">NEBULA</span>
+        <span class="eo-ab">Dağıl: Mini top fırlat</span>
+      </div>
+    </div>
+    <button class="btn-hero" style="width:100%;justify-content:center;" onclick="startGame()">
+      <span>▶ &nbsp;OYUNA BAŞLA</span>
+    </button>
+    <div style="margin-top:.9rem;font-size:.65rem;color:var(--dim)">
+      SPACE: Boost &nbsp;·&nbsp; Q: Nova &nbsp;·&nbsp; E: Yetenek &nbsp;·&nbsp; ESC/P: Duraklat
+    </div>
+    <div id="player-count-lobby" style="margin-top:.6rem;font-size:.62rem;color:var(--grn)">● 0 oyuncu bekliyor</div>
+  </div>
+</div>
+
+<!-- DEATH overlay -->
+<div class="ov" id="ov-death">
+  <div class="ov-box">
+    <div class="ov-ttl" style="background:linear-gradient(90deg,var(--red),var(--mag));-webkit-background-clip:text;-webkit-text-fill-color:transparent">YUTULDUN!</div>
+    <div class="ov-sub" id="death-by">— — —</div>
+    <div class="death-sc" id="death-sc">0</div>
+    <div style="font-size:.65rem;letter-spacing:3px;color:var(--dim);margin-bottom:1rem">FINAL SKORU</div>
+    <div class="death-grid">
+      <div><span class="dg-v" style="color:var(--gold)" id="ds-mass">0</span><div class="dg-l">MAX KÜTLE</div></div>
+      <div><span class="dg-v" style="color:var(--red)" id="ds-kills">0</span><div class="dg-l">ÖLDÜRME</div></div>
+      <div><span class="dg-v" style="color:var(--purp)" id="ds-time">0:00</span><div class="dg-l">SÜRE</div></div>
+    </div>
+    <div style="font-size:.7rem;color:var(--dim);margin-bottom:1rem">4 saniye sonra otomatik yeniden doğuyorsun...</div>
+    <button class="btn-ghost" onclick="exitToHome()" style="width:100%;padding:.75rem">🏠 ANA SAYFA</button>
+  </div>
+</div>
+
+<!-- Socket.io CDN -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/game-mp.js"></script>
+</body>
+</html>

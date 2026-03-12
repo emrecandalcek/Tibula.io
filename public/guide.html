@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Rehber</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+<style>
+.guide-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:1rem; }
+.gcard { background:var(--surf); border:1px solid var(--border); border-radius:var(--r2); padding:1.4rem; }
+.gcard h3 { font-family:'Orbitron',sans-serif; font-size:.65rem; letter-spacing:3px; color:var(--cyan); margin-bottom:.8rem; padding-bottom:.45rem; border-bottom:1px solid var(--border); }
+.gi { display:flex; gap:.75rem; padding:.48rem 0; border-bottom:1px solid rgba(255,255,255,.03); }
+.gi:last-child { border-bottom:none; }
+.gk { font-family:'Orbitron',sans-serif; font-size:.58rem; background:rgba(0,224,255,.07); border:1px solid var(--border); border-radius:3px; padding:.15rem .45rem; color:var(--cyan); white-space:nowrap; align-self:flex-start; min-width:52px; text-align:center; }
+.gd { font-size:.76rem; color:var(--dim); line-height:1.55; }
+.gd strong { color:var(--txt); }
+.el-cards { display:grid; grid-template-columns:repeat(2,1fr); gap:.8rem; margin-top:1rem; }
+.elc { padding:1rem; border-radius:var(--r); border:1px solid; }
+.elc.solar  { border-color:rgba(255,191,0,.25); }
+.elc.plasma { border-color:rgba(0,224,255,.25); }
+.elc.void   { border-color:rgba(160,64,255,.25); }
+.elc.nebula { border-color:rgba(255,0,212,.25); }
+.elc-h { display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+.elc-nm { font-family:'Orbitron',sans-serif; font-size:.68rem; font-weight:700; }
+.elc.solar  .elc-nm { color:var(--gold); }
+.elc.plasma .elc-nm { color:var(--cyan); }
+.elc.void   .elc-nm { color:var(--purp); }
+.elc.nebula .elc-nm { color:var(--mag);  }
+.elc p { font-size:.72rem; color:var(--dim); line-height:1.45; margin-bottom:.22rem; }
+.elc p span { font-family:'Orbitron',sans-serif; font-size:.55rem; margin-right:.28rem; }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl on" data-pg="guide.html">REHBERİ</div>
+    <div class="nl" data-pg="leaderboard.html" onclick="goPage('leaderboard.html')">LİDERLİK</div>
+    <div class="nl" data-pg="competitive.html" onclick="goPage('competitive.html')">⚔️ ARENA</div>
+    <div class="nl" data-pg="shop.html" onclick="goPage('shop.html')">MAĞAZA</div>
+    <div class="nl" data-pg="settings.html" onclick="goPage('settings.html')">AYARLAR</div>
+    <div class="nl" data-pg="admin.html" onclick="goPage('admin.html')" id="nav-admin-nl" style="display:none">ADMİN</div>
+  </div>
+  <div class="nav-right" id="nav-right">
+    <div class="nav-coins" id="nav-coins" style="display:none"><span>◈</span><span id="nav-coin-val">0</span></div>
+    <div id="nav-user-area"></div>
+  </div>
+</nav>
+
+<div style="overflow-y:auto;height:100vh;padding-top:60px;">
+  <div class="content">
+    <div class="page-hdr">
+      <div class="page-ttl">OYUN REHBERİ</div>
+      <div class="page-sub">TÜM MEKANİKLERİ ÖĞREN</div>
+    </div>
+
+    <div class="guide-grid">
+      <div class="gcard">
+        <h3>⌨️ KONTROLLER</h3>
+        <div class="gi"><div class="gk">FARE</div><div class="gd"><strong>Hareket</strong> — İmlece doğru ilerle. Uzaklık = hız.</div></div>
+        <div class="gi"><div class="gk">SPACE</div><div class="gd"><strong>Boost</strong> — 2x hız patlaması, yakıcı iz bırakır, kütle harcar.</div></div>
+        <div class="gi"><div class="gk">Q / RMB</div><div class="gd"><strong>Nova Atımı</strong> — Yakındaki tüm varlıkları iter. Kara delikleri uyuşturur.</div></div>
+        <div class="gi"><div class="gk">E</div><div class="gd"><strong>Özel Yetenek</strong> — Seçilen elemente özel güç. Cooldown var!</div></div>
+        <div class="gi"><div class="gk">ESC</div><div class="gd">Oyunu durdur ve menüye dön.</div></div>
+      </div>
+
+      <div class="gcard">
+        <h3>🎯 TEMEL MEKANİKLER</h3>
+        <div class="gi"><div class="gk">YEM</div><div class="gd"><strong>Partiküller</strong> topla → kütle kazan. Yıldız kümesi = 2x değer.</div></div>
+        <div class="gi"><div class="gk">YUT</div><div class="gd"><strong>Daha küçük oyuncuları</strong> yut → kütlelerinin %90'ını al.</div></div>
+        <div class="gi"><div class="gk">PORTAL</div><div class="gd"><strong>Solucan deliğine</strong> gir → anında karşı tarafa ışınlan.</div></div>
+        <div class="gi"><div class="gk">KARA D.</div><div class="gd"><strong>Kesinlikle yaklaşma.</strong> Boyuttan bağımsız — her şeyi yutar!</div></div>
+        <div class="gi"><div class="gk">KOMBİ</div><div class="gd">Hızlı ardışık öldür → <strong>x2–x10 kombo</strong> → %20 bonus kütle!</div></div>
+      </div>
+
+      <div class="gcard" style="grid-column:1/-1">
+        <h3>⚗️ ELEMENT SİSTEMİ</h3>
+        <div class="el-cards">
+          <div class="elc solar">
+            <div class="elc-h"><span style="font-size:1.4rem">☀️</span><span class="elc-nm">SOLAR</span></div>
+            <p><span>PASİF:</span>Yakın yemleri otomatik kendine çeker. Yem toplamak çok kolay.</p>
+            <p><span>AKTİF [E]:</span>Solar Flare — 280px etraftaki tüm rakipleri 3 saniye kör eder.</p>
+            <p><span>CD:</span>8 saniye</p>
+          </div>
+          <div class="elc plasma">
+            <div class="elc-h"><span style="font-size:1.4rem">⚡</span><span class="elc-nm">PLASMA</span></div>
+            <p><span>PASİF:</span>Küçük boyuttayken daha hızlısın (%28 bonus hız).</p>
+            <p><span>AKTİF [E]:</span>Zincir — 320px etraftaki tüm yemleri sana fırlatan enerji zinciri.</p>
+            <p><span>CD:</span>6 saniye</p>
+          </div>
+          <div class="elc void">
+            <div class="elc-h"><span style="font-size:1.4rem">🌑</span><span class="elc-nm">VOID</span></div>
+            <p><span>PASİF:</span>Kütle 50'nin altındayken minimapte görünmezsin.</p>
+            <p><span>AKTİF [E]:</span>Faz Geçişi — 2 saniye tam dokunulmazlık. Hiçbir şey sana dokunamaz.</p>
+            <p><span>CD:</span>10 saniye</p>
+          </div>
+          <div class="elc nebula">
+            <div class="elc-h"><span style="font-size:1.4rem">🌸</span><span class="elc-nm">NEBULA</span></div>
+            <p><span>PASİF:</span>Hasar aldığında rastgele yön enerji topları bırakırsın.</p>
+            <p><span>AKTİF [E]:</span>Dağılma — 5 farklı yönde mini enerji topu fırlat.</p>
+            <p><span>CD:</span>7 saniye</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="gcard">
+        <h3>🌍 DÜNYA OBJELERİ</h3>
+        <div class="gi"><div class="gk">🌀 PORTAL</div><div class="gd">3 çift solucan deliği var. Girince 3sn bekleme süresi başlar.</div></div>
+        <div class="gi"><div class="gk">🕳️ KARA D.</div><div class="gd">2 kara delik zamanla büyür. Boyuttan bağımsız — sadece Nova ile uyuşturabilirsin.</div></div>
+        <div class="gi"><div class="gk">⭐ KÜME</div><div class="gd">5 yıldız kümesi haritada. 2x değerli yem. Ama herkes buraya gelir!</div></div>
+        <div class="gi"><div class="gk">🗺️ BOYUT</div><div class="gd">Dünya 5000×5000. Sınır duvara çarpınca geri itersin.</div></div>
+      </div>
+
+      <div class="gcard">
+        <h3>💡 PRO TAKTIKLER</h3>
+        <div class="gi"><div class="gk">KAÇIŞ</div><div class="gd">Portal + Boost kombinasyonu en iyi kaçış yöntemi.</div></div>
+        <div class="gi"><div class="gk">TUZAK</div><div class="gd">Rakibi kara deliğe doğru sür. Yaklaşmaya zorla!</div></div>
+        <div class="gi"><div class="gk">VOID</div><div class="gd">Faz + büyük rakip içine gir → çıkınca yemleri ye.</div></div>
+        <div class="gi"><div class="gk">KOMBİ</div><div class="gd">Birden fazla küçük oyuncunun olduğu yerde Nova sonrası hızlı öldür.</div></div>
+        <div class="gi"><div class="gk">KÜTLE</div><div class="gd">Boost kullanırken kütle harcarsın. Önemli anlarda sakın.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+</body>
+</html>

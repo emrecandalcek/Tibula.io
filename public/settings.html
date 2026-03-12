@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Ayarlar</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl" data-pg="guide.html" onclick="goPage('guide.html')">REHBERİ</div>
+    <div class="nl" data-pg="leaderboard.html" onclick="goPage('leaderboard.html')">LİDERLİK</div>
+    <div class="nl" data-pg="competitive.html" onclick="goPage('competitive.html')">⚔️ ARENA</div>
+    <div class="nl" data-pg="shop.html" onclick="goPage('shop.html')">MAĞAZA</div>
+    <div class="nl on" data-pg="settings.html">AYARLAR</div>
+    <div class="nl" data-pg="admin.html" onclick="goPage('admin.html')" id="nav-admin-nl" style="display:none">ADMİN</div>
+  </div>
+  <div class="nav-right" id="nav-right">
+    <div class="nav-coins" id="nav-coins" style="display:none"><span>◈</span><span id="nav-coin-val">0</span></div>
+    <div id="nav-user-area"></div>
+  </div>
+</nav>
+
+<div style="overflow-y:auto;height:100vh;padding-top:60px;">
+  <div class="s-wrap">
+    <div class="page-hdr">
+      <div class="page-ttl">AYARLAR</div>
+      <div class="page-sub">KİŞİSEL TERCİHLER</div>
+    </div>
+
+    <div class="s-sect">
+      <div class="s-sect-h">GÖRSEL AYARLAR</div>
+      <div class="s-row">
+        <div><div class="s-label">Parçacık Efektleri</div><div class="s-hint">Patlama, iz ve özel efektler</div></div>
+        <div class="tog on" id="tog-particles" onclick="togSet(this,'particles')"></div>
+      </div>
+      <div class="s-row">
+        <div><div class="s-label">Kamera Sallantısı</div><div class="s-hint">Patlama anında ekran titrer</div></div>
+        <div class="tog on" id="tog-shake" onclick="togSet(this,'shake')"></div>
+      </div>
+      <div class="s-row">
+        <div><div class="s-label">Oyuncu İsimleri</div><div class="s-hint">Diğer oyuncuların isimlerini göster</div></div>
+        <div class="tog on" id="tog-names" onclick="togSet(this,'names')"></div>
+      </div>
+      <div class="s-row">
+        <div><div class="s-label">Grafik Kalitesi</div><div class="s-hint">Düşük = daha iyi performans</div></div>
+        <div style="display:flex;align-items:center;gap:.6rem;">
+          <span style="font-size:.7rem;color:var(--dim)">Düşük</span>
+          <input class="s-sl" type="range" min="1" max="3" value="2" id="s-quality" oninput="saveQuality(this.value)">
+          <span style="font-size:.7rem;color:var(--dim)">Yüksek</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="s-sect">
+      <div class="s-sect-h">SES AYARLARI</div>
+      <div class="s-row">
+        <div><div class="s-label">Ses Efektleri</div><div class="s-hint">Öldürme, boost ve yetenek sesleri</div></div>
+        <div class="tog on" id="tog-sfx" onclick="togSet(this,'sfx')"></div>
+      </div>
+      <div class="s-row">
+        <div><div class="s-label">Ses Seviyesi</div></div>
+        <input class="s-sl" type="range" min="0" max="100" value="70" id="s-vol" oninput="saveVolume(this.value)">
+      </div>
+    </div>
+
+    <div class="s-sect">
+      <div class="s-sect-h">OYUN AYARLARI</div>
+      <div class="s-row">
+        <div><div class="s-label">Mini Harita</div><div class="s-hint">Sağ alt köşede harita</div></div>
+        <div class="tog on" id="tog-minimap" onclick="togSet(this,'minimap')"></div>
+      </div>
+      <div class="s-row">
+        <div><div class="s-label">Kombo Bildirimleri</div><div class="s-hint">Ekran ortasında kombo sayacı</div></div>
+        <div class="tog on" id="tog-combo" onclick="togSet(this,'combo')"></div>
+      </div>
+      <div class="s-row">
+        <div><div class="s-label">Arka Plan Yıldızları</div><div class="s-hint">Sayfalardaki animasyonlu yıldız arka planı</div></div>
+        <div class="tog on" id="tog-bgStars" onclick="togSet(this,'bgStars')"></div>
+      </div>
+    </div>
+
+    <div class="s-sect">
+      <div class="s-sect-h">HESAP</div>
+      <div class="s-row" id="s-account-row">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <div class="s-sect">
+      <div class="s-sect-h">VERİ YÖNETİMİ</div>
+      <div class="s-row">
+        <div><div class="s-label">Tüm Verileri Sıfırla</div><div class="s-hint" style="color:var(--red)">Tüm kullanıcılar ve veriler silinir!</div></div>
+        <button class="btn btn-red" onclick="confirmReset()">SIFIRLA</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const s = DB.settings;
+  ['particles','shake','names','minimap','combo','sfx','bgStars'].forEach(k => {
+    const el = document.getElementById('tog-'+k);
+    if (el) { if (!s[k]) el.classList.remove('on'); }
+  });
+  const q = document.getElementById('s-quality');
+  if (q) q.value = s.quality || 2;
+  const vol = document.getElementById('s-vol');
+  if (vol) vol.value = s.volume ?? 70;
+
+  const user = getCurrentUser();
+  const row = document.getElementById('s-account-row');
+  if (user) {
+    row.innerHTML = `
+      <div>
+        <div class="s-label">${user.name} <span style="font-family:'Orbitron',sans-serif;font-size:.55rem;color:var(--gold)">Lv.${user.level||1}</span></div>
+        <div class="s-hint">${user.email} · ${user.role}</div>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn btn-outline" onclick="goPage('profile.html')" style="font-size:.62rem">PROFİL</button>
+        <button class="btn btn-red" onclick="doLogout()" style="font-size:.62rem">ÇIKIŞ</button>
+      </div>`;
+  } else {
+    row.innerHTML = `
+      <div><div class="s-label">Giriş yapılmadı</div><div class="s-hint">Giriş yaparak verilerini kaydet</div></div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn btn-outline" onclick="goPage('login.html')" style="font-size:.62rem">GİRİŞ</button>
+        <button class="btn btn-cyan" onclick="goPage('register.html')" style="font-size:.62rem">KAYIT OL</button>
+      </div>`;
+  }
+});
+
+function togSet(el, key) {
+  el.classList.toggle('on');
+  const s = DB.settings; s[key] = el.classList.contains('on'); DB.settings = s;
+}
+function saveQuality(v) {
+  const s = DB.settings; s.quality = parseInt(v); DB.settings = s;
+}
+function saveVolume(v) {
+  const s = DB.settings; s.volume = parseInt(v); DB.settings = s;
+}
+function confirmReset() {
+  if (confirm('TÜM veriler silinecek. Emin misin?')) {
+    localStorage.clear(); location.reload();
+  }
+}
+</script>
+</body>
+</html>

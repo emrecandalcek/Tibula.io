@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Ana Sayfa</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span>.io</span></div>
+  <div class="nav-links">
+    <div class="nl on" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl" data-pg="guide.html"  onclick="goPage('guide.html')">REHBERİ</div>
+    <div class="nl" data-pg="leaderboard.html" onclick="goPage('leaderboard.html')">LİDERLİK</div>
+    <div class="nl" data-pg="competitive.html" onclick="goPage('competitive.html')">⚔️ ARENA</div>
+    <div class="nl" data-pg="shop.html"   onclick="goPage('shop.html')">MAĞAZA</div>
+    <div class="nl" data-pg="settings.html" onclick="goPage('settings.html')">AYARLAR</div>
+    <div class="nl" data-pg="admin.html"  onclick="goPage('admin.html')" id="nav-admin-nl" style="display:none">ADMİN</div>
+  </div>
+  <div class="nav-right" id="nav-right">
+    <div class="nav-coins" id="nav-coins" style="display:none">
+      <span>◈</span><span id="nav-coin-val">0</span>
+    </div>
+    <div id="nav-user-area"></div>
+  </div>
+</nav>
+
+<!-- News bar -->
+<div class="news-bar" style="position:fixed;top:60px;left:0;right:0;z-index:100;">
+  <div class="news-inner" id="news-ticker">
+    <span>⚡</span>StarDevil şu an 1. sırada!&nbsp;&nbsp;&nbsp;
+    <span>🔥</span>Yeni kozmetik: Lav Küpü eklendi!&nbsp;&nbsp;&nbsp;
+    <span>🏆</span>Haftalık turnuva Cuma başlıyor!&nbsp;&nbsp;&nbsp;
+    <span>🎁</span>Günlük giriş bonusu: 100-500 altın!&nbsp;&nbsp;&nbsp;
+    <span>⭐</span>Yeni element skini: Nova Patlama&nbsp;&nbsp;&nbsp;
+    <!-- Duplicate for seamless loop -->
+    <span>⚡</span>StarDevil şu an 1. sırada!&nbsp;&nbsp;&nbsp;
+    <span>🔥</span>Yeni kozmetik: Lav Küpü eklendi!&nbsp;&nbsp;&nbsp;
+    <span>🏆</span>Haftalık turnuva Cuma başlıyor!&nbsp;&nbsp;&nbsp;
+    <span>🎁</span>Günlük giriş bonusu: 100-500 altın!&nbsp;&nbsp;&nbsp;
+    <span>⭐</span>Yeni element skini: Nova Patlama&nbsp;&nbsp;&nbsp;
+  </div>
+</div>
+
+<div style="overflow-y:auto;height:100vh;padding-top:32px;">
+  <div class="hero">
+    <!-- Orb decorations -->
+    <div class="orb-deco" style="width:200px;height:200px;background:radial-gradient(circle,rgba(0,224,255,.1),transparent 70%);top:8%;left:4%;animation-delay:-1s;animation-duration:5s;"></div>
+    <div class="orb-deco" style="width:130px;height:130px;background:radial-gradient(circle,rgba(255,0,212,.08),transparent 70%);top:15%;right:7%;animation-delay:-2s;animation-duration:4s;"></div>
+    <div class="orb-deco" style="width:80px;height:80px;background:radial-gradient(circle,rgba(255,191,0,.1),transparent 70%);bottom:25%;left:12%;animation-delay:-0.5s;animation-duration:6s;"></div>
+
+    <div class="hero-eyebrow">⬡ ÇOK OYUNCULU UZAY ARENA ⬡</div>
+    <div class="hero-title">NEBULA<span class="io">.io</span></div>
+    <div class="hero-tagline">— Kozmosa Hükmet &nbsp;·&nbsp; Yıldızları Yut —</div>
+
+    <div class="hero-btns">
+      <button class="btn-hero" onclick="goPage('game.html')"><span>▶ &nbsp;HEMEN OYNA</span></button>
+      <button class="btn-ghost" onclick="goPage('guide.html')">NASIL OYNANIR</button>
+      <button class="btn-hero mag" onclick="goPage('shop.html')"><span>🛒 MAĞAZA</span></button>
+    </div>
+
+    <div class="hero-nums">
+      <div><span class="hn-val" id="stat-online">0</span><div class="hn-lbl">Çevrimiçi</div></div>
+      <div><span class="hn-val">4</span><div class="hn-lbl">Element</div></div>
+      <div><span class="hn-val" id="stat-games">0</span><div class="hn-lbl">Oyun Oynandı</div></div>
+      <div><span class="hn-val">∞</span><div class="hn-lbl">Yıldız Sistemi</div></div>
+    </div>
+  </div>
+
+  <!-- Features section -->
+  <div class="content" style="max-width:1280px;">
+    <div class="page-hdr">
+      <div style="font-family:'Orbitron',sans-serif;font-size:.62rem;letter-spacing:5px;color:var(--dim);text-align:center;margin-bottom:2rem;">
+        ⬡ &nbsp; EŞSİZ MEKANİKLER &nbsp; ⬡
+      </div>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card"><span class="feat-icon">⚗️</span><div class="feat-title">4 ELEMENT SİSTEMİ</div><p class="feat-text">Solar, Plasma, Void, Nebula — her birinin pasif gücü ve aktif yeteneği. Oynayış tarzını kendin belirle.</p></div>
+      <div class="feat-card"><span class="feat-icon">🌀</span><div class="feat-title">SOLUCAN DELİKLERİ</div><p class="feat-text">Haritada rengarenk portaller var. Gir, anında karşı tarafa ışınlan. Hem kaçış hem baskın için ideal.</p></div>
+      <div class="feat-card"><span class="feat-icon">🕳️</span><div class="feat-title">KARA DELİKLER</div><p class="feat-text">Haritada büyüyen kara delikler. Boyutundan bağımsız herkesi yutar. Dikkatli yaklaş!</p></div>
+      <div class="feat-card"><span class="feat-icon">💥</span><div class="feat-title">NOVA ATIMI</div><p class="feat-text">Q tuşu veya sağ tık ile devasa şok dalgası sal. Yakındaki herkesi iter, kara delikleri uyuşturur.</p></div>
+      <div class="feat-card"><span class="feat-icon">⚡</span><div class="feat-title">KOMBİ SISTEMI</div><p class="feat-text">Hızlı ardışık öldürmeler kombo zinciri kurar. Her seviye %20 bonus kütle kazandırır!</p></div>
+      <div class="feat-card"><span class="feat-icon">✨</span><div class="feat-title">YILDIZ KÜMELERİ</div><p class="feat-text">Haritada altın bölgeler parlıyor. Bu kümelerde yem 2x değerli. Yoğun rekabet ama büyük kazanç!</p></div>
+      <div class="feat-card"><span class="feat-icon">🎨</span><div class="feat-title">KOZMETİK MAĞAZA</div><p class="feat-text">12 skin, 8 iz, 8 efekt. Her biri işlevsel — satın aldığında oyun içinde görünür ve aktif olur.</p></div>
+      <div class="feat-card"><span class="feat-icon">🏆</span><div class="feat-title">BAŞARI SİSTEMİ</div><p class="feat-text">10 farklı başarı rozeti. Kazandıkça XP puan ve altın bonus alırsın. Seviye sisteminde yüksel!</p></div>
+      <div class="feat-card"><span class="feat-icon">📊</span><div class="feat-title">DETAYLI PROFİL</div><p class="feat-text">Tüm istatistiklerin, element dökümün, oyun geçmişin ve başarıların profilinde görünür.</p></div>
+      <div class="feat-card"><span class="feat-icon">🎁</span><div class="feat-title">GÜNLÜK BONUS</div><p class="feat-text">Her gün giriş yaparak artan seri bonusu kazan. 7 gün üst üste: 500 altın ödülü!</p></div>
+    </div>
+  </div>
+
+  <!-- Top Players -->
+  <div class="content" style="max-width:900px;padding-bottom:5rem;">
+    <div class="page-hdr"><div class="page-ttl">EN İYİ OYUNCULAR</div></div>
+    <div id="home-lb" style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;"></div>
+    <div style="text-align:center;margin-top:1rem;">
+      <button class="btn btn-outline" onclick="goPage('leaderboard.html')">TÜME TABLOYU GÖR →</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  animCounter(document.getElementById('stat-online'), 12847);
+  animCounter(document.getElementById('stat-games'), 3200000, 2000, v => (v/1000000).toFixed(1)+'M');
+  setInterval(() => {
+    const el = document.getElementById('stat-online');
+    if (el) el.textContent = (11800 + Math.floor(Math.random()*1200)).toLocaleString();
+  }, 4500);
+
+  // Mini leaderboard
+  const lb = document.getElementById('home-lb');
+  const users = DB.users.filter(u=>!u.banned).sort((a,b)=>b.score-a.score).slice(0,5);
+  const EL_COL = {solar:'#ffbf00',plasma:'#00e0ff',void:'#a040ff',nebula:'#ff00d4'};
+  lb.innerHTML = `
+    <div style="display:grid;grid-template-columns:50px 1fr 120px 100px;padding:.7rem 1.2rem;background:rgba(0,224,255,.04);border-bottom:1px solid var(--border);">
+      <span style="font-family:'Orbitron',sans-serif;font-size:.52rem;letter-spacing:2px;color:var(--dim)">#</span>
+      <span style="font-family:'Orbitron',sans-serif;font-size:.52rem;letter-spacing:2px;color:var(--dim)">OYUNCU</span>
+      <span style="font-family:'Orbitron',sans-serif;font-size:.52rem;letter-spacing:2px;color:var(--dim)">SKOR</span>
+      <span style="font-family:'Orbitron',sans-serif;font-size:.52rem;letter-spacing:2px;color:var(--dim)">SEVİYE</span>
+    </div>
+    ${users.map((u,i)=>{
+    const byEl = u.stats?.byElement || {};
+    let topEl = 'plasma', topScore = -1;
+    Object.entries(byEl).forEach(([el, d]) => { if((d.score||0) > topScore){ topScore=d.score||0; topEl=el; } });
+    const elCol = EL_COL[topEl] || '#00e0ff';
+    return `
+    <div style="display:grid;grid-template-columns:50px 1fr 120px 100px;padding:.68rem 1.2rem;border-bottom:1px solid rgba(255,255,255,.02);align-items:center;cursor:pointer;" onclick="goPage('profile.html')">
+      <span style="font-family:'Orbitron',sans-serif;font-size:.88rem;font-weight:900;${i===0?'color:var(--gold)':i===1?'color:#c0c0c0':i===2?'color:#cd7f32':'color:var(--dim)'}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)}</span>
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;border:1.5px solid ${elCol};background:${elCol}22">
+          ${EL_ICONS[topEl]||EL_ICONS.plasma}</div>
+        <div>
+          <span style="font-weight:600;font-size:.82rem;display:block">${u.name}</span>
+          <span style="font-size:.55rem;color:var(--dim);font-family:'Orbitron',sans-serif">Lv.${u.level||1}</span>
+        </div>
+      </div>
+      <span style="font-family:'Orbitron',sans-serif;font-size:.75rem;font-weight:700;color:var(--cyan)">${(u.score||0).toLocaleString()}</span>
+      <span style="font-family:'Orbitron',sans-serif;font-size:.7rem;font-weight:700;color:var(--gold)">Lv.${u.level||1}</span>
+    </div>`;}).join('')}
+  `;
+});
+</script>
+</body>
+</html>
