@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="NEBULA.io — Çok oyunculu uzay arena oyunu. 4 element seç, yıldızları yut, kozmosa hükmet!">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEBULA.io — Rekabetçi</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/competitive.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" onclick="goPage('index.html')">ANA SAYFA</div>
+    <div class="nl" onclick="goPage('guide.html')">REHBERİ</div>
+    <div class="nl" onclick="goPage('leaderboard.html')">LİDERLİK</div>
+    <div class="nl on">REKABETÇİ</div>
+    <div class="nl" onclick="goPage('shop.html')">MAĞAZA</div>
+    <div class="nl" onclick="goPage('settings.html')">AYARLAR</div>
+    <div class="nl" onclick="goPage('admin.html')" id="nav-admin-nl" style="display:none">ADMİN</div>
+  </div>
+  <div class="nav-right" id="nav-right">
+    <div class="nav-coins" id="nav-coins" style="display:none"><span>◈</span><span id="nav-coin-val">0</span></div>
+    <div id="nav-user-area"></div>
+  </div>
+</nav>
+
+<!-- GUEST WALL -->
+<div id="guest-wall" style="display:none;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem;">
+  <div>
+    <div style="font-size:3.5rem;margin-bottom:1rem">🏆</div>
+    <div style="font-family:'Orbitron',sans-serif;font-size:1.4rem;color:var(--cyan);margin-bottom:.5rem">REKABETÇİ ARENA</div>
+    <div style="color:var(--dim);max-width:360px;margin:0 auto 1.5rem;line-height:1.6">
+      Ranked maçlar oynamak, turnuvalara katılmak ve klan kurmak için giriş yapman gerekiyor.
+    </div>
+    <div style="display:flex;gap:.7rem;justify-content:center">
+      <button class="btn btn-cyan" onclick="goPage('login.html')">GİRİŞ YAP</button>
+      <button class="btn btn-outline" onclick="goPage('register.html')">KAYIT OL</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="comp-content" style="display:none;" class="pg-body">
+  <div class="content" style="max-width:1200px; padding-top:1.5rem;">
+
+    <div class="page-hdr">
+      <div class="page-ttl">REKABETÇİ ARENA</div>
+      <div class="page-sub">RÜTBE KAZAN · TURNUVA KAZAN · EFSANE OL</div>
+    </div>
+
+    <!-- RANK CARD (top) -->
+    <div class="rank-card" id="rank-card" style="--rk-color:#cd7f32;--rk-glow:rgba(205,127,50,.35); margin-bottom:1.2rem;">
+      <div class="rank-card-bg"></div>
+      <div class="rank-icon" id="rk-icon">🥉</div>
+      <div class="rank-info">
+        <div class="rank-name" id="rk-name">BRONZ</div>
+        <div class="rank-elo" id="rk-elo">ELO: <strong>1000</strong></div>
+        <div class="rank-bar"><div class="rank-fill" id="rk-fill" style="width:0%"></div></div>
+        <div class="rank-bar-lbl" id="rk-bar-lbl">0 / 1000 puan</div>
+      </div>
+      <div class="rank-stats" id="rk-stats"></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="comp-tabs">
+      <div class="comp-tab on"  data-tab="ranked"     onclick="compTab(this,'ranked')">⚔️ 1V1 RANKED</div>
+      <div class="comp-tab"    data-tab="team"        onclick="compTab(this,'team')">🛡️ 5V5 TAKIM</div>
+      <div class="comp-tab"    data-tab="tournament"  onclick="compTab(this,'tournament')">🏆 TURNUVA</div>
+      <div class="comp-tab"    data-tab="season"      onclick="compTab(this,'season')">🌌 SEZON PASS</div>
+      <div class="comp-tab"    data-tab="guild"       onclick="compTab(this,'guild')">⚡ KLANLAR</div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: RANKED 1v1
+    ════════════════════════════════════════ -->
+    <div id="tab-ranked" class="tab-content">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.2rem;">
+        <!-- Matchmaking box -->
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;">
+          <div class="sh">⚔️ RANKED 1V1 DÜELLO</div>
+          <div id="mm-panel">
+            <div class="mm-state">
+              <div class="mm-icon">⚔️</div>
+              <div class="mm-ttl">HAZIR MISIN?</div>
+              <div class="mm-sub" style="margin-bottom:1.4rem">ELO'na göre rakip bulunur. 3 dakika, en fazla kütle toplayan kazanır.</div>
+              <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap;">
+                <div style="background:rgba(0,224,255,.06);border:1px solid var(--border);border-radius:var(--r);padding:.7rem 1rem;text-align:center;min-width:90px;">
+                  <div style="font-size:.62rem;color:var(--dim);margin-bottom:.2rem">MOD</div>
+                  <div style="font-family:'Orbitron',sans-serif;font-size:.72rem;color:var(--cyan)">1 vs 1</div>
+                </div>
+                <div style="background:rgba(0,224,255,.06);border:1px solid var(--border);border-radius:var(--r);padding:.7rem 1rem;text-align:center;min-width:90px;">
+                  <div style="font-size:.62rem;color:var(--dim);margin-bottom:.2rem">SÜRE</div>
+                  <div style="font-family:'Orbitron',sans-serif;font-size:.72rem;color:var(--cyan)">3 DAKİKA</div>
+                </div>
+                <div style="background:rgba(0,224,255,.06);border:1px solid var(--border);border-radius:var(--r);padding:.7rem 1rem;text-align:center;min-width:90px;">
+                  <div style="font-size:.62rem;color:var(--dim);margin-bottom:.2rem">HARITA</div>
+                  <div style="font-family:'Orbitron',sans-serif;font-size:.72rem;color:var(--cyan)">KÜÇÜK</div>
+                </div>
+              </div>
+              <button class="btn-hero" style="margin-top:1.3rem;padding:.85rem 2.5rem" onclick="startMatchmaking()">
+                <span>▶ MAÇA GİR</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leaderboard snapshot -->
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;">
+          <div class="sh">🏅 RANKED SIRALAMASI</div>
+          <div id="ranked-lb"></div>
+        </div>
+      </div>
+
+      <!-- Duel History -->
+      <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;">
+        <div style="padding:.8rem 1.2rem;border-bottom:1px solid var(--border);background:rgba(0,224,255,.04)">
+          <div class="sh" style="margin:0">📋 DÜELLO GEÇMİŞİ</div>
+        </div>
+        <div id="duel-history"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: 5v5 TEAM
+    ════════════════════════════════════════ -->
+    <div id="tab-team" class="tab-content" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem;">
+        <!-- Team battle box -->
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;">
+          <div class="sh">🛡️ 5V5 TAKIM SAVAŞI</div>
+          <div style="margin-bottom:1.2rem;">
+            <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.5rem;margin-bottom:1rem;">
+              <div style="background:rgba(0,224,255,.07);border:1px solid rgba(0,224,255,.2);border-radius:var(--r);padding:1rem;text-align:center;">
+                <div style="font-size:1.4rem;margin-bottom:.4rem">💙</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--cyan);margin-bottom:.3rem">MAVİ TAKIM</div>
+                <div id="blue-team-preview" style="font-size:.68rem;color:var(--dim);line-height:1.7"></div>
+              </div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:900;color:var(--red);text-align:center">VS</div>
+              <div style="background:rgba(255,51,85,.07);border:1px solid rgba(255,51,85,.2);border-radius:var(--r);padding:1rem;text-align:center;">
+                <div style="font-size:1.4rem;margin-bottom:.4rem">❤️</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--red);margin-bottom:.3rem">KIRMIZI TAKIM</div>
+                <div style="font-size:.68rem;color:var(--dim);line-height:1.7">
+                  VoidStalker<br>PlasmaRage<br>DarkNova<br>NebulaX<br>AstroFury
+                </div>
+              </div>
+            </div>
+            <div style="background:rgba(255,191,0,.06);border:1px solid rgba(255,191,0,.2);border-radius:var(--r);padding:.7rem;font-size:.73rem;color:var(--dim);margin-bottom:1rem;line-height:1.55">
+              ⏱ <strong style="color:var(--gold)">5 Dakika</strong> — En fazla öldürmesi olan takım kazanır.<br>
+              🏅 Galipler <strong style="color:var(--gold)">+30 SP</strong> + ekstra altın alır.
+            </div>
+            <button class="btn-hero" style="width:100%;justify-content:center;padding:.85rem" onclick="startTeamGame()">
+              <span>⚔️ TAKIMA KATIL VE OYNA</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Team stats -->
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;">
+          <div class="sh">📊 TAKIM İSTATİSTİKLERİ</div>
+          <div id="team-stats"></div>
+        </div>
+      </div>
+      <!-- Team history -->
+      <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;">
+        <div style="padding:.8rem 1.2rem;border-bottom:1px solid var(--border);background:rgba(0,224,255,.04)">
+          <div class="sh" style="margin:0">📋 TAKIM GEÇMİŞİ</div>
+        </div>
+        <div id="team-history"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: TOURNAMENT
+    ════════════════════════════════════════ -->
+    <div id="tab-tournament" class="tab-content" style="display:none">
+      <div id="tournament-list" style="margin-bottom:1.5rem"></div>
+
+      <!-- Bracket viewer -->
+      <div id="bracket-section" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem">
+          <div class="sh" style="margin:0">🗂️ TURNUVA BRAKCET'İ</div>
+          <button class="btn btn-outline" onclick="closeBracket()" style="font-size:.6rem;padding:.35rem .75rem">KAPAT ✕</button>
+        </div>
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;">
+          <div class="bracket-wrap" id="bracket-inner"></div>
+        </div>
+        <div id="bracket-actions" style="margin-top:1rem;text-align:center;display:none">
+          <div style="font-family:'Orbitron',sans-serif;font-size:.72rem;color:var(--cyan);margin-bottom:.5rem">SIRAN GELDİ!</div>
+          <div style="font-size:.78rem;color:var(--dim);margin-bottom:1rem" id="bracket-match-info"></div>
+          <button class="btn-hero" onclick="playBracketMatch()" style="padding:.85rem 2rem"><span>⚔️ MAÇI OYNA</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: SEASON PASS
+    ════════════════════════════════════════ -->
+    <div id="tab-season" class="tab-content" style="display:none">
+      <div class="season-header">
+        <div class="season-n">SEZON 1</div>
+        <div class="season-name" id="s-name">Gölge Nebulası</div>
+        <div class="season-pts">⭐ Sezon Puanı: <strong id="s-pts">0</strong></div>
+        <div class="season-end" id="s-end"></div>
+        <div style="margin-top:.8rem">
+          <div style="height:8px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;max-width:400px;">
+            <div id="s-global-fill" style="height:100%;background:linear-gradient(90deg,var(--purp),var(--cyan),var(--mag));border-radius:4px;transition:width .9s ease;box-shadow:0 0 8px var(--purp);width:0%"></div>
+          </div>
+          <div style="font-size:.65rem;color:var(--dim);margin-top:.3rem" id="s-global-lbl">Tier 0 / 10</div>
+        </div>
+      </div>
+
+      <!-- SP Earning guide -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.7rem;margin-bottom:1.3rem;">
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:.9rem;text-align:center;">
+          <div style="font-size:1.3rem;margin-bottom:.3rem">⚔️</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.6rem;color:var(--cyan);margin-bottom:.2rem">1v1 ZAFER</div>
+          <div style="font-size:.72rem;color:var(--dim)">+50 SP</div>
+        </div>
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:.9rem;text-align:center;">
+          <div style="font-size:1.3rem;margin-bottom:.3rem">🛡️</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.6rem;color:var(--cyan);margin-bottom:.2rem">TAKIM ZAFERİ</div>
+          <div style="font-size:.72rem;color:var(--dim)">+30 SP</div>
+        </div>
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:.9rem;text-align:center;">
+          <div style="font-size:1.3rem;margin-bottom:.3rem">🏆</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.6rem;color:var(--cyan);margin-bottom:.2rem">TURNUVA 1.</div>
+          <div style="font-size:.72rem;color:var(--dim)">+200 SP</div>
+        </div>
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:.9rem;text-align:center;">
+          <div style="font-size:1.3rem;margin-bottom:.3rem">🎮</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:.6rem;color:var(--cyan);margin-bottom:.2rem">GÜNLÜK OYNA</div>
+          <div style="font-size:.72rem;color:var(--dim)">+10 SP</div>
+        </div>
+      </div>
+
+      <div class="season-track" id="season-track"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: GUILDS / KLANLAR
+    ════════════════════════════════════════ -->
+    <div id="tab-guild" class="tab-content" style="display:none">
+      <!-- My guild or create/join -->
+      <div id="guild-panel" style="margin-bottom:1.5rem"></div>
+
+      <!-- Guild leaderboard -->
+      <div>
+        <div class="sh">🏅 KLAN LİDERLİĞİ</div>
+        <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;">
+          <div style="display:grid;grid-template-columns:40px 1fr 80px 70px 70px;padding:.68rem 1rem;background:rgba(0,224,255,.04);border-bottom:1px solid var(--border);">
+            <span style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:2px;color:var(--dim)">#</span>
+            <span style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:2px;color:var(--dim)">KLAN</span>
+            <span style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:2px;color:var(--dim)">ELO</span>
+            <span style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:2px;color:var(--dim)">GALİBİYET</span>
+            <span style="font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:2px;color:var(--dim)">ÜYE</span>
+          </div>
+          <div id="guild-lb-body"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /comp-content -->
+
+<!-- ═══════════════════════════════════
+     MATCHMAKING OVERLAY
+══════════════════════════════════════ -->
+<div class="ov" id="ov-mm">
+  <div class="ov-box" style="max-width:480px">
+    <div id="mm-overlay-body">
+      <!-- searching state -->
+      <div id="mm-searching">
+        <div class="mm-spinner"></div>
+        <div class="mm-ttl">RAKİP ARANIY OR...</div>
+        <div class="mm-sub" style="margin:.5rem 0 1.2rem">ELO: <span id="mm-my-elo" style="color:var(--cyan);font-family:'Orbitron',sans-serif">1000</span></div>
+        <div class="mm-dots"><span></span><span></span><span></span></div>
+        <div id="mm-search-time" style="font-family:'Orbitron',sans-serif;font-size:.8rem;color:var(--dim);margin-top:.8rem">0s</div>
+        <button class="btn-ghost" style="margin-top:1rem;font-size:.7rem;letter-spacing:2px;padding:.65rem 1.5rem" onclick="cancelMatchmaking()">İPTAL</button>
+      </div>
+
+      <!-- opponent found state -->
+      <div id="mm-found" style="display:none">
+        <div class="ov-ttl" style="font-size:1.3rem;margin-bottom:1.2rem">RAKİP BULUNDU!</div>
+        <div style="display:flex;align-items:center;gap:.8rem;justify-content:center;margin-bottom:1.5rem;flex-wrap:wrap">
+          <div class="opp-card" style="flex:1;min-width:140px">
+            <div class="opp-avatar" id="mm-my-avatar" style="background:rgba(0,224,255,.1);border-color:var(--cyan)">⚡</div>
+            <div>
+              <div class="opp-name" id="mm-my-name">Sen</div>
+              <div class="opp-rank" id="mm-my-rank">Bronz 1000</div>
+            </div>
+          </div>
+          <div class="vs-badge">VS</div>
+          <div class="opp-card" style="flex:1;min-width:140px">
+            <div class="opp-avatar" id="mm-opp-avatar" style="background:rgba(255,51,85,.1);border-color:var(--red)">🌑</div>
+            <div>
+              <div class="opp-name" id="mm-opp-name">—</div>
+              <div class="opp-rank" id="mm-opp-rank">—</div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div class="countdown-big" id="mm-countdown">3</div>
+          <div class="countdown-lbl">SANİYE SONRA BAŞLIYOR</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     DUEL RESULT OVERLAY
+══════════════════════════════════════ -->
+<div class="ov" id="ov-duel-result">
+  <div class="ov-box" style="max-width:420px">
+    <div class="result-box">
+      <div id="res-verdict" class="result-win">ZAFERİN!</div>
+      <div style="font-size:.72rem;letter-spacing:3px;color:var(--dim);margin:.4rem 0 1rem">DÜELLO SONA ERDİ</div>
+      <div style="display:flex;justify-content:center;gap:2rem;margin-bottom:1.2rem">
+        <div><span style="font-family:'Orbitron',sans-serif;font-size:1.8rem;font-weight:900;color:var(--cyan)" id="res-my-mass">0</span><div style="font-size:.6rem;letter-spacing:2px;color:var(--dim)">KÜTLE</div></div>
+        <div><span style="font-family:'Orbitron',sans-serif;font-size:1.8rem;font-weight:900;color:var(--red)" id="res-opp-mass">0</span><div style="font-size:.6rem;letter-spacing:2px;color:var(--dim)">RAKİP</div></div>
+      </div>
+      <div id="res-elo-change" class="result-elo-change">+0 ELO</div>
+      <div class="result-new-elo" id="res-new-elo">Yeni ELO: 1000</div>
+      <div style="margin-top:.6rem;font-size:.72rem;color:var(--gold)" id="res-sp">+50 Sezon Puanı</div>
+      <div style="margin-top:1.3rem;display:flex;gap:.7rem">
+        <button class="btn-hero" style="flex:1;padding:.85rem" onclick="startMatchmaking()"><span>TEKRAR</span></button>
+        <button class="btn-ghost" style="flex:.7;font-size:.72rem;letter-spacing:2px" onclick="closeDuelResult()">KAPAT</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     TEAM RESULT OVERLAY
+══════════════════════════════════════ -->
+<div class="ov" id="ov-team-result">
+  <div class="ov-box" style="max-width:440px">
+    <div class="result-box">
+      <div id="team-res-verdict" class="result-win">TAKIM ZAFERİ!</div>
+      <div style="font-size:.72rem;letter-spacing:3px;color:var(--dim);margin:.4rem 0 1.2rem">TAKIM SAVAŞI SONA ERDİ</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.5rem;margin-bottom:1.2rem;">
+        <div style="text-align:center">
+          <div style="font-family:'Orbitron',sans-serif;font-size:2.5rem;font-weight:900;color:var(--cyan)" id="team-blue-kills">0</div>
+          <div style="font-size:.6rem;letter-spacing:2px;color:var(--dim)">MAVİ TAKIM</div>
+        </div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.2rem;color:var(--dim)">:</div>
+        <div style="text-align:center">
+          <div style="font-family:'Orbitron',sans-serif;font-size:2.5rem;font-weight:900;color:var(--red)" id="team-red-kills">0</div>
+          <div style="font-size:.6rem;letter-spacing:2px;color:var(--dim)">KIRMIZI TAKIM</div>
+        </div>
+      </div>
+      <div id="team-res-coins" style="font-family:'Orbitron',sans-serif;font-size:.82rem;color:var(--gold)">+0 ◈</div>
+      <div style="margin-top:1.3rem;display:flex;gap:.7rem">
+        <button class="btn-hero" style="flex:1;padding:.85rem" onclick="startTeamGame()"><span>TEKRAR</span></button>
+        <button class="btn-ghost" style="flex:.7;font-size:.72rem;letter-spacing:2px" onclick="closeTeamResult()">KAPAT</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     CREATE GUILD OVERLAY
+══════════════════════════════════════ -->
+<div class="ov" id="ov-create-guild">
+  <div class="ov-box" style="max-width:440px">
+    <div class="ov-ttl" style="font-size:1.2rem;margin-bottom:.3rem">KLAN OLUŞTUR</div>
+    <div class="ov-sub">Klanını kur ve oyuncuları topla</div>
+    <div class="fld" style="margin-bottom:.85rem">
+      <label style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:2px;color:var(--dim);display:block;margin-bottom:.35rem">KLAN ADI</label>
+      <input type="text" id="guild-create-name" maxlength="24" placeholder="Nova Squadron..." style="width:100%;padding:.7rem 1rem;background:rgba(0,0,0,.45);border:1px solid var(--border);border-radius:var(--r);color:var(--txt);font-size:.88rem;outline:none">
+    </div>
+    <div class="fld" style="margin-bottom:.85rem">
+      <label style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:2px;color:var(--dim);display:block;margin-bottom:.35rem">ETİKET (2-4 KARAKTER)</label>
+      <input type="text" id="guild-create-tag" maxlength="4" placeholder="NSQ" style="width:100%;padding:.7rem 1rem;background:rgba(0,0,0,.45);border:1px solid var(--border);border-radius:var(--r);color:var(--txt);font-size:.88rem;outline:none;text-transform:uppercase">
+    </div>
+    <div class="fld" style="margin-bottom:1.2rem">
+      <label style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:2px;color:var(--dim);display:block;margin-bottom:.35rem">AÇIKLAMA</label>
+      <input type="text" id="guild-create-desc" maxlength="60" placeholder="Klan açıklaması..." style="width:100%;padding:.7rem 1rem;background:rgba(0,0,0,.45);border:1px solid var(--border);border-radius:var(--r);color:var(--txt);font-size:.88rem;outline:none">
+    </div>
+    <div id="guild-create-err" style="background:rgba(255,51,85,.1);border:1px solid rgba(255,51,85,.35);border-radius:var(--r);padding:.55rem .9rem;font-size:.74rem;color:var(--red);margin-bottom:.8rem;display:none"></div>
+    <div style="display:flex;gap:.7rem">
+      <button class="btn-hero" style="flex:1;padding:.85rem" onclick="doCreateGuild()"><span>⚡ OLUŞTUR</span></button>
+      <button class="btn-ghost" style="flex:.6;font-size:.72rem" onclick="document.getElementById('ov-create-guild').classList.remove('on')">VAZGEÇ</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/competitive.js"></script>
+<script>
+// ────────────────────────────────────────────────────────────
+//  INIT
+// ────────────────────────────────────────────────────────────
+let currentUser = null;
+let pendingOpponent = null;
+let mmInterval = null, mmTimer = 0;
+let currentBracket = null, currentTournamentId = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = getCurrentUser();
+  if (!currentUser) {
+    document.getElementById('guest-wall').style.display = 'flex';
+    return;
+  }
+  document.getElementById('comp-content').style.display = 'block';
+  ensureCompetitiveData(currentUser);
+  saveUser(currentUser);
+
+  renderRankCard();
+  renderRankedTab();
+  renderTeamTab();
+  renderTournamentTab();
+  renderSeasonTab();
+  renderGuildTab();
+
+  // Check for game results
+  checkGameResult();
+});
+
+// ────────────────────────────────────────────────────────────
+//  GAME RESULT CHECK (after returning from game.html)
+// ────────────────────────────────────────────────────────────
+function checkGameResult() {
+  const r = JSON.parse(localStorage.getItem('neb_comp_result') || 'null');
+  if (!r) return;
+  localStorage.removeItem('neb_comp_result');
+  currentUser = getCurrentUser();
+  ensureCompetitiveData(currentUser);
+
+  if (r.mode === 'duel') {
+    const opp = r.opponent;
+    const won = r.playerMass > r.oppMass;
+    const result = recordDuelResult(currentUser.id, opp, won);
+    currentUser = getCurrentUser();
+
+    document.getElementById('res-verdict').textContent = won ? '🏆 ZAFERİN!' : '💀 YENİLDİN';
+    document.getElementById('res-verdict').className = won ? 'result-win' : 'result-loss';
+    document.getElementById('res-my-mass').textContent = Math.floor(r.playerMass);
+    document.getElementById('res-opp-mass').textContent = Math.floor(r.oppMass);
+    const chg = result?.eloChange || 0;
+    document.getElementById('res-elo-change').textContent = (chg >= 0 ? '+' : '') + chg + ' ELO';
+    document.getElementById('res-elo-change').style.color = chg >= 0 ? 'var(--grn)' : 'var(--red)';
+    document.getElementById('res-new-elo').textContent = 'Yeni ELO: ' + (result?.newElo || 1000);
+    document.getElementById('res-sp').textContent = won ? '+50 Sezon Puanı kazandın!' : '+0 Sezon Puanı';
+    document.getElementById('ov-duel-result').classList.add('on');
+    renderRankCard();
+    renderRankedTab();
+    compTab(document.querySelector('[data-tab=ranked]'), 'ranked');
+  }
+
+  if (r.mode === 'team') {
+    const won = r.blueKills > r.redKills;
+    recordTeamResult(currentUser.id, won);
+    currentUser = getCurrentUser();
+    const coins = won ? 200 : 50;
+    currentUser.coins = (currentUser.coins || 0) + coins;
+    saveUser(currentUser);
+    updateNavUI();
+
+    document.getElementById('team-res-verdict').textContent = won ? '🏆 TAKIM ZAFERİ!' : '💀 TAKIM YENİLDİ';
+    document.getElementById('team-res-verdict').className = won ? 'result-win' : 'result-loss';
+    document.getElementById('team-blue-kills').textContent = r.blueKills;
+    document.getElementById('team-red-kills').textContent = r.redKills;
+    document.getElementById('team-res-coins').textContent = (won ? '+200 ◈ + +30 SP kazandın!' : '+50 ◈ teselli ödülü');
+    document.getElementById('ov-team-result').classList.add('on');
+    renderTeamTab();
+    compTab(document.querySelector('[data-tab=team]'), 'team');
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+//  RANK CARD
+// ────────────────────────────────────────────────────────────
+function renderRankCard() {
+  currentUser = getCurrentUser();
+  ensureCompetitiveData(currentUser);
+  const elo = currentUser.elo || 1000;
+  const rank = getRankByElo(elo);
+  const prog = getEloProgress(elo);
+  const card = document.getElementById('rank-card');
+  card.style.setProperty('--rk-color', rank.color);
+  card.style.setProperty('--rk-glow', rank.glow);
+  document.getElementById('rk-icon').textContent = rank.icon;
+  document.getElementById('rk-name').textContent = rank.name.toUpperCase();
+  document.getElementById('rk-name').style.color = rank.color;
+  document.getElementById('rk-elo').innerHTML = `ELO: <strong style="color:var(--txt)">${elo}</strong>`;
+  setTimeout(() => document.getElementById('rk-fill').style.width = prog.pct + '%', 200);
+  const nextRank = ELO_RANKS[ELO_RANKS.findIndex(r => r.id === rank.id) + 1];
+  document.getElementById('rk-bar-lbl').textContent = nextRank ? `${prog.current} / ${prog.total} → ${nextRank.name}` : 'MAKSIMUM RÜTBE';
+  document.getElementById('rk-stats').innerHTML = [
+    { v: currentUser.duelWins || 0,   l: 'ZAFER',    c: 'var(--grn)' },
+    { v: currentUser.duelLosses || 0, l: 'YENİLGİ',  c: 'var(--red)' },
+    { v: winRate(currentUser) + '%',  l: 'W/L ORANI', c: rank.color },
+  ].map(s => `<div class="rs-box"><span class="rs-v" style="color:${s.c}">${s.v}</span><div class="rs-l">${s.l}</div></div>`).join('');
+}
+
+function winRate(u) {
+  const w = u.duelWins || 0, l = u.duelLosses || 0;
+  if (!w && !l) return 0;
+  return Math.round(w / (w + l) * 100);
+}
+
+// ────────────────────────────────────────────────────────────
+//  RANKED TAB
+// ────────────────────────────────────────────────────────────
+function renderRankedTab() {
+  const MOCK_LB = [
+    { name:'CosmicGod',  elo:3620, icon:'👑' },
+    { name:'Quantum_X',  elo:2840, icon:'💠' },
+    { name:'VoidKing',   elo:2310, icon:'💎' },
+    { name:'SolarFlame', elo:1920, icon:'🥇' },
+    { name:'PlasmaX',    elo:1560, icon:'🥇' },
+    { name:'DarkStar',   elo:1280, icon:'🥈' },
+    { name:'NovaBurst',  elo:1110, icon:'🥈' },
+    { name:'StarKiller', elo:980,  icon:'🥉' },
+  ];
+  // Insert current user
+  const elo = currentUser.elo || 1000;
+  const all = [{ name: currentUser.name, elo, icon: getRankByElo(elo).icon, isMe: true }, ...MOCK_LB]
+    .sort((a,b) => b.elo - a.elo);
+
+  document.getElementById('ranked-lb').innerHTML = all.slice(0, 8).map((p, i) => {
+    const rk = getRankByElo(p.elo);
+    return `<div style="display:flex;align-items:center;gap:.65rem;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.03);">
+      <span style="font-family:'Orbitron',sans-serif;font-size:.7rem;font-weight:900;color:${i<3?['var(--gold)','#c0c0c0','#cd7f32'][i]:'var(--dim)'};width:18px">${i+1}</span>
+      <span style="font-size:1rem">${p.icon}</span>
+      <span style="flex:1;font-size:.8rem;font-weight:600;${p.isMe?'color:var(--cyan)':''}">${p.name}${p.isMe?' 👈':''}</span>
+      <span style="font-family:'Orbitron',sans-serif;font-size:.7rem;font-weight:700;color:${rk.color}">${p.elo}</span>
+    </div>`;
+  }).join('');
+
+  // Duel history
+  const hist = (currentUser.duelHistory || []).slice().reverse().slice(0, 10);
+  document.getElementById('duel-history').innerHTML = hist.length === 0
+    ? `<div style="padding:1.5rem;text-align:center;color:var(--dim);font-size:.78rem">Henüz düello yok. İlk maçını oyna!</div>`
+    : hist.map(h => `<div class="duel-hist-row">
+        <span class="${h.won ? 'duel-win' : 'duel-loss'}">${h.won ? 'W' : 'L'}</span>
+        <span style="font-size:.78rem">${h.opponent}</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--dim)">${h.opponentElo} ELO</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:.72rem;font-weight:700;color:${h.eloChange>=0?'var(--grn)':'var(--red)'}">${h.eloChange>=0?'+':''}${h.eloChange}</span>
+        <span style="font-size:.65rem;color:var(--dim)">${timeAgo(h.date)}</span>
+      </div>`).join('');
+}
+
+// ────────────────────────────────────────────────────────────
+//  MATCHMAKING
+// ────────────────────────────────────────────────────────────
+function startMatchmaking() {
+  document.getElementById('ov-duel-result').classList.remove('on');
+  const elo = currentUser.elo || 1000;
+  document.getElementById('mm-my-elo').textContent = elo;
+  document.getElementById('mm-searching').style.display = 'block';
+  document.getElementById('mm-found').style.display = 'none';
+  document.getElementById('ov-mm').classList.add('on');
+  mmTimer = 0;
+  const timeEl = document.getElementById('mm-search-time');
+  mmInterval = setInterval(() => {
+    mmTimer++;
+    timeEl.textContent = mmTimer + 's';
+    // "Find" opponent after 2-4 seconds
+    if (mmTimer >= 2 + Math.floor(Math.random() * 3)) {
+      clearInterval(mmInterval);
+      showOpponentFound();
+    }
+  }, 1000);
+}
+
+function cancelMatchmaking() {
+  clearInterval(mmInterval);
+  document.getElementById('ov-mm').classList.remove('on');
+}
+
+function showOpponentFound() {
+  const elo = currentUser.elo || 1000;
+  pendingOpponent = findMatchOpponent(elo);
+  const oppRank = getRankByElo(pendingOpponent.elo);
+  const myRank  = getRankByElo(elo);
+  document.getElementById('mm-my-avatar').textContent = myRank.icon;
+  document.getElementById('mm-my-name').textContent = currentUser.name;
+  document.getElementById('mm-my-rank').textContent = myRank.name + ' ' + elo;
+  document.getElementById('mm-opp-avatar').textContent = pendingOpponent.icon;
+  document.getElementById('mm-opp-name').textContent = pendingOpponent.name;
+  document.getElementById('mm-opp-rank').textContent = oppRank.name + ' ' + pendingOpponent.elo;
+  document.getElementById('mm-searching').style.display = 'none';
+  document.getElementById('mm-found').style.display = 'block';
+
+  // Countdown 3..2..1
+  let count = 3;
+  const cdEl = document.getElementById('mm-countdown');
+  cdEl.textContent = count;
+  const cd = setInterval(() => {
+    count--;
+    if (count <= 0) { clearInterval(cd); launchDuelGame(); }
+    else { cdEl.textContent = count; cdEl.style.animation='none'; requestAnimationFrame(()=>{cdEl.style.animation='popIn .4s ease';}); }
+  }, 1000);
+}
+
+function launchDuelGame() {
+  document.getElementById('ov-mm').classList.remove('on');
+  // Store opponent info so game.html can use it
+  localStorage.setItem('neb_game_mode', JSON.stringify({
+    mode: 'duel',
+    opponent: pendingOpponent,
+    playerName: currentUser.name,
+    playerElo: currentUser.elo || 1000,
+  }));
+  goPage('game.html');
+}
+
+function closeDuelResult() {
+  document.getElementById('ov-duel-result').classList.remove('on');
+}
+
+// ────────────────────────────────────────────────────────────
+//  TEAM TAB
+// ────────────────────────────────────────────────────────────
+function renderTeamTab() {
+  currentUser = getCurrentUser();
+  // Blue team preview
+  document.getElementById('blue-team-preview').innerHTML =
+    `<strong style="color:var(--cyan)">${currentUser.name}</strong> (Sen)<br>StarHelper<br>CosmicAid<br>PlasmaAlly<br>VoidFriend`;
+
+  const tw = currentUser.teamWins || 0;
+  const tl = currentUser.teamLosses || 0;
+  const wr = (tw + tl) > 0 ? Math.round(tw / (tw + tl) * 100) : 0;
+  document.getElementById('team-stats').innerHTML = [
+    { l:'Takım Zaferi',   v: tw,     c:'var(--grn)' },
+    { l:'Takım Yenilgisi',v: tl,     c:'var(--red)' },
+    { l:'Kazanma Oranı',  v: wr+'%', c:'var(--cyan)' },
+    { l:'Sezon Puanı',    v: (currentUser.seasonPoints||0), c:'var(--purp)' },
+  ].map(s => `<div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.03);">
+    <span style="font-size:.78rem;color:var(--dim)">${s.l}</span>
+    <span style="font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700;color:${s.c}">${s.v}</span>
+  </div>`).join('');
+
+  const th = (currentUser.teamHistory || []).slice().reverse().slice(0, 6);
+  document.getElementById('team-history').innerHTML = th.length === 0
+    ? `<div style="padding:1.5rem;text-align:center;color:var(--dim);font-size:.78rem">Henüz takım maçı yok!</div>`
+    : th.map(h => `<div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;border-bottom:1px solid rgba(255,255,255,.03);font-size:.75rem;">
+        <span style="font-family:'Orbitron',sans-serif;font-size:.6rem;font-weight:700;${h.won?'color:var(--grn)':'color:var(--red)'}">${h.won?'ZAFERİN':'YENİLGİ'}</span>
+        <span style="flex:1;color:var(--dim)">${new Date(h.date).toLocaleDateString('tr-TR')}</span>
+        <span style="color:var(--cyan);font-family:'Orbitron',sans-serif;font-size:.68rem">${h.blueKills||0} - ${h.redKills||0}</span>
+        <span style="color:var(--dim);font-size:.65rem">${timeAgo(h.date)}</span>
+      </div>`).join('');
+}
+
+function startTeamGame() {
+  document.getElementById('ov-team-result').classList.remove('on');
+  localStorage.setItem('neb_game_mode', JSON.stringify({
+    mode: 'team',
+    playerName: currentUser.name,
+  }));
+  goPage('game.html');
+}
+
+function closeTeamResult() {
+  document.getElementById('ov-team-result').classList.remove('on');
+}
+
+// ────────────────────────────────────────────────────────────
+//  TOURNAMENT TAB
+// ────────────────────────────────────────────────────────────
+function renderTournamentTab() {
+  const ts = getTournaments();
+  const list = document.getElementById('tournament-list');
+  list.innerHTML = '';
+  ts.forEach(t => {
+    const joined = t.participantIds.includes(currentUser.id);
+    const fill = (t.participantIds.length / t.maxParticipants) * 100;
+    const ms = t.endDate - Date.now();
+    const days = Math.max(0, Math.floor(ms / 86400000));
+    const hours = Math.max(0, Math.floor((ms % 86400000) / 3600000));
+
+    const div = document.createElement('div');
+    div.className = 'tourn-card';
+    div.innerHTML = `
+      <div class="tourn-head">
+        <div>
+          <div class="tourn-name">${t.type === 'monthly' ? '🏅' : '⚡'} ${t.name}</div>
+          <div class="tourn-desc">${t.desc}</div>
+        </div>
+        <div class="tourn-meta">
+          <span class="badge ${t.status === 'open' ? 'badge-grn' : 'badge-red'}">${t.status === 'open' ? '● AÇIK' : '● KAPALI'}</span>
+          <div class="timer-txt">⏳ ${days}g ${hours}sa kaldı</div>
+        </div>
+      </div>
+      <div class="tourn-body">
+        <div class="tourn-prize">
+          <div style="font-family:'Orbitron',sans-serif;font-size:.56rem;letter-spacing:2px;color:var(--dim);margin-bottom:.5rem">ÖDÜLLER</div>
+          <div class="tp-row"><span class="tp-medal">🥇</span><span class="tp-val">◈ ${t.prizePool[1].toLocaleString()}</span></div>
+          <div class="tp-row"><span class="tp-medal">🥈</span><span class="tp-val">◈ ${t.prizePool[2].toLocaleString()}</span></div>
+          <div class="tp-row"><span class="tp-medal">🥉</span><span class="tp-val">◈ ${t.prizePool[3].toLocaleString()}</span></div>
+        </div>
+        <div class="tourn-participants" style="flex:1">
+          <div style="font-family:'Orbitron',sans-serif;font-size:.56rem;letter-spacing:2px;color:var(--dim);margin-bottom:.35rem">
+            KATILIMCILAR: ${t.participantIds.length} / ${t.maxParticipants}
+          </div>
+          <div class="tp-bar"><div class="tp-fill" style="width:${fill}%"></div></div>
+          <div style="margin-top:.9rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+            ${joined
+              ? `<button class="btn btn-outline" style="font-size:.6rem" onclick="viewBracket('${t.id}')">BRACKET GÖR</button>
+                 <button class="btn-hero" style="font-size:.62rem;padding:.5rem 1rem" onclick="playTournamentMatch('${t.id}')"><span>MAÇA GİR</span></button>`
+              : t.status === 'open' && t.participantIds.length < t.maxParticipants
+                ? `<button class="btn-hero" style="font-size:.65rem;padding:.55rem 1.2rem" onclick="joinTournamentUI('${t.id}')"><span>KATIL</span></button>`
+                : `<span style="font-size:.7rem;color:var(--dim)">Katılım kapalı</span>`
+            }
+          </div>
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function joinTournamentUI(id) {
+  const res = joinTournament(id, currentUser.id);
+  if (res.ok) {
+    showToast('✓ Turnuvaya katıldın!', '#00ff88');
+    addSeasonPoints(currentUser.id, 10, 'Turnuva Kaydı');
+    renderTournamentTab();
+  } else {
+    showToast('✗ ' + res.msg, '#ff3355');
+  }
+}
+
+function viewBracket(tournId) {
+  const ts = getTournaments();
+  const t = ts.find(x => x.id === tournId);
+  if (!t) return;
+  currentTournamentId = tournId;
+  if (!t.bracket) {
+    t.bracket = buildBracket(t, currentUser.id);
+    t.bracket = simulateBracket(t.bracket, currentUser.id);
+    const idx = ts.findIndex(x => x.id === tournId);
+    ts[idx] = t; saveTournaments(ts);
+  }
+  currentBracket = t.bracket;
+  renderBracket(currentBracket, currentUser.id);
+  document.getElementById('bracket-section').style.display = 'block';
+  document.getElementById('bracket-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderBracket(bracket, userId) {
+  const inner = document.getElementById('bracket-inner');
+  const { rounds } = bracket;
+  const roundNames = ['Çeyrek Final', 'Yarı Final', 'Final', 'Şampiyon'];
+
+  let playerMatch = null;
+  rounds.forEach((round, ri) => {
+    round.forEach(match => {
+      if (!match.played && (match.p1?.isPlayer || match.p2?.isPlayer)) playerMatch = match;
+    });
+  });
+
+  inner.innerHTML = `<div class="bracket">${rounds.map((round, ri) => `
+    <div class="bracket-round">
+      <div class="bracket-round-label">${roundNames[Math.min(ri, roundNames.length-1)] || 'TUR '+(ri+1)}</div>
+      <div class="bracket-matches">${round.map(match => `
+        <div class="bm">
+          <div class="bm-slot ${match.winner?.id===match.p1?.id?'winner':''} ${match.played&&match.winner?.id!==match.p1?.id?'loser':''} ${match.p1?.isPlayer?'is-player':''}">
+            <span class="bm-name">${match.p1?.name||'TBD'}</span>
+            <span class="bm-elo">${match.p1?.elo||''}</span>
+          </div>
+          <div class="bm-divider"></div>
+          <div class="bm-slot ${match.winner?.id===match.p2?.id?'winner':''} ${match.played&&match.winner?.id!==match.p2?.id?'loser':''} ${match.p2?.isPlayer?'is-player':''}">
+            <span class="bm-name">${match.p2?.name||'TBD'}</span>
+            <span class="bm-elo">${match.p2?.elo||''}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`).join('')}
+  </div>`;
+
+  const actDiv = document.getElementById('bracket-actions');
+  if (playerMatch) {
+    const opp = playerMatch.p1?.isPlayer ? playerMatch.p2 : playerMatch.p1;
+    actDiv.style.display = 'block';
+    document.getElementById('bracket-match-info').textContent = `${playerMatch.p1?.name} vs ${playerMatch.p2?.name} — Kazanmak için maçı oyna!`;
+    actDiv.dataset.opp = JSON.stringify(opp);
+  } else {
+    actDiv.style.display = 'none';
+  }
+}
+
+function closeBracket() {
+  document.getElementById('bracket-section').style.display = 'none';
+}
+
+function playBracketMatch() {
+  const actDiv = document.getElementById('bracket-actions');
+  const opp = JSON.parse(actDiv.dataset.opp || '{}');
+  pendingOpponent = opp;
+  localStorage.setItem('neb_game_mode', JSON.stringify({
+    mode: 'duel',
+    opponent: opp,
+    playerName: currentUser.name,
+    isTournamentMatch: true,
+    tournamentId: currentTournamentId,
+  }));
+  goPage('game.html');
+}
+
+function playTournamentMatch(id) {
+  viewBracket(id);
+  setTimeout(() => {
+    const actDiv = document.getElementById('bracket-actions');
+    if (actDiv.style.display !== 'none') {
+      actDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      showToast('Bu turda maçın kalmadı. Sonraki turu bekle!', '#ffbf00');
+    }
+  }, 400);
+}
+
+// ────────────────────────────────────────────────────────────
+//  SEASON TAB
+// ────────────────────────────────────────────────────────────
+function renderSeasonTab() {
+  currentUser = getCurrentUser();
+  const pts = currentUser.seasonPoints || 0;
+  const end = new Date(SEASON.end).toLocaleDateString('tr-TR');
+  document.getElementById('s-pts').textContent = pts.toLocaleString();
+  document.getElementById('s-end').textContent = `Sezon Sonu: ${end}`;
+  const prog = getSeasonProgress(currentUser);
+  const globalPct = (prog.currentTier / SEASON_REWARDS.length) * 100;
+  setTimeout(() => {
+    document.getElementById('s-global-fill').style.width = globalPct + '%';
+  }, 300);
+  document.getElementById('s-global-lbl').textContent = `Tier ${prog.currentTier} / ${SEASON_REWARDS.length}`;
+
+  document.getElementById('season-track').innerHTML = SEASON_REWARDS.map(r => {
+    const claimed = (currentUser.claimedTiers || []).includes(r.tier);
+    const unlocked = pts >= r.points;
+    const current = prog.nextTier?.tier === r.tier;
+    let cls = 'reward-card';
+    if (claimed) cls += ' claimed';
+    else if (current) cls += ' current';
+    else if (unlocked) cls += ' unlocked';
+    else cls += ' locked';
+    let btn = '';
+    if (claimed)   btn = `<button class="reward-btn claimed" disabled>✓ ALINDI</button>`;
+    else if (unlocked) btn = `<button class="reward-btn claim" onclick="doClaimReward(${r.tier})">◈ AL</button>`;
+    else btn = `<button class="reward-btn locked" disabled>${r.points} SP</button>`;
+    return `<div class="${cls}">
+      ${r.exclusive ? '<div class="reward-excl">ÖZEL</div>' : ''}
+      <div class="reward-tier">TİER ${r.tier}</div>
+      <div class="reward-icon">${r.icon}</div>
+      <div class="reward-name">${r.label}</div>
+      <div class="reward-pts">${r.points} SP gerekir</div>
+      ${btn}
+    </div>`;
+  }).join('');
+}
+
+function doClaimReward(tier) {
+  const ok = claimSeasonReward(currentUser.id, tier);
+  if (ok) {
+    currentUser = getCurrentUser();
+    showToast('🎁 Ödül alındı!', '#00ff88');
+    updateNavUI();
+    renderSeasonTab();
+    renderRankCard();
+  } else {
+    showToast('Yeterli sezon puanı yok!', '#ff3355');
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+//  GUILD TAB
+// ────────────────────────────────────────────────────────────
+function renderGuildTab() {
+  currentUser = getCurrentUser();
+  const panel = document.getElementById('guild-panel');
+  const guilds = getGuilds();
+  const myGuild = guilds.find(g => g.id === currentUser.guildId);
+
+  if (myGuild) {
+    const isLeader = myGuild.leaderId === currentUser.id;
+    panel.innerHTML = `
+      <div class="guild-hero">
+        <div class="guild-tag">${myGuild.tag}</div>
+        <div style="flex:1">
+          <div class="guild-name">${myGuild.name}</div>
+          <div class="guild-motd">"${myGuild.motd}"</div>
+          <div class="guild-stats">
+            <div class="gs-item">Üye: <strong>${myGuild.memberIds.length}/30</strong></div>
+            <div class="gs-item">ELO: <strong>${myGuild.elo}</strong></div>
+            <div class="gs-item">Galibiyet: <strong>${myGuild.wins}</strong></div>
+          </div>
+          <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap">
+            ${isLeader ? `<button class="btn btn-outline" style="font-size:.62rem">⚙️ AYARLAR</button>` : ''}
+            <button class="btn btn-red" onclick="doLeaveGuild()" style="font-size:.62rem">KLANDAN AYRIL</button>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    panel.innerHTML = `
+      <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:.8rem">⚡</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:.82rem;color:var(--cyan);margin-bottom:.4rem">KLANA KATIL VEYA OLUŞTUR</div>
+        <div style="font-size:.75rem;color:var(--dim);max-width:320px;margin:0 auto .9rem;line-height:1.6">
+          Takımını kur, birlikte savaş ve klan turnuvalarında şampiyonluğu hedefle!
+        </div>
+        <div style="display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap">
+          <button class="btn-hero" style="padding:.75rem 1.8rem" onclick="document.getElementById('ov-create-guild').classList.add('on')"><span>⚡ KLAN OLUŞTUR</span></button>
+          <button class="btn-ghost" style="font-size:.72rem;letter-spacing:2px;padding:.75rem 1.5rem" onclick="showJoinGuild()">KLANA KATIL</button>
+        </div>
+        <div id="join-guild-panel" style="display:none;margin-top:1rem;max-width:360px;margin-left:auto;margin-right:auto">
+          <div style="display:flex;gap:.5rem">
+            <input type="text" id="join-guild-search" placeholder="Klan adı ara..." style="flex:1;padding:.65rem 1rem;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:var(--r);color:var(--txt);font-size:.82rem;outline:none">
+            <button class="btn btn-outline" onclick="searchGuilds()" style="font-size:.62rem">ARA</button>
+          </div>
+          <div id="guild-search-results" style="margin-top:.7rem"></div>
+        </div>
+      </div>`;
+  }
+
+  // Guild leaderboard
+  const glb = getGuildLeaderboard();
+  document.getElementById('guild-lb-body').innerHTML = glb.slice(0, 8).map((g, i) => {
+    const isMe = g.id === currentUser.guildId;
+    return `<div class="guild-lb-row ${isMe ? 'style=background:rgba(0,224,255,.04)' : ''}">
+      <span style="font-family:'Orbitron',sans-serif;font-size:.7rem;font-weight:900;color:${i<3?['var(--gold)','#c0c0c0','#cd7f32'][i]:'var(--dim)'}">${i+1}</span>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span class="guild-tag-sm">${g.tag}</span>
+        <span style="font-size:.78rem;font-weight:600">${g.name}${isMe?' 👈':''}</span>
+      </div>
+      <span class="lb-d" style="font-family:'Orbitron',sans-serif;font-size:.72rem;font-weight:700;color:var(--cyan)">${g.elo||1000}</span>
+      <span style="color:var(--grn);font-family:'Orbitron',sans-serif;font-size:.72rem">${g.wins||0}</span>
+      <span style="color:var(--dim);font-size:.72rem">${g.memberIds?.length||0}</span>
+    </div>`;
+  }).join('');
+}
+
+function showJoinGuild() {
+  document.getElementById('join-guild-panel').style.display = 'block';
+}
+
+function searchGuilds() {
+  const q = document.getElementById('join-guild-search').value.toLowerCase();
+  const res = getGuildLeaderboard().filter(g => g.name.toLowerCase().includes(q) || g.tag.toLowerCase().includes(q));
+  document.getElementById('guild-search-results').innerHTML = res.slice(0,5).map(g => `
+    <div style="display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;background:var(--surf);border:1px solid var(--border);border-radius:var(--r);margin-bottom:.4rem">
+      <span class="guild-tag-sm">${g.tag}</span>
+      <span style="flex:1;font-size:.78rem">${g.name}</span>
+      <span style="font-size:.68rem;color:var(--dim)">${g.memberIds?.length||0} üye</span>
+      ${!g.id.startsWith('fg') ? `<button class="at-btn save" onclick="doJoinGuild('${g.id}')">KATIL</button>` : `<span style="font-size:.65rem;color:var(--dim)">Tam</span>`}
+    </div>`).join('') || `<div style="color:var(--dim);font-size:.75rem;padding:.5rem">Sonuç bulunamadı.</div>`;
+}
+
+function doCreateGuild() {
+  const name = document.getElementById('guild-create-name').value.trim();
+  const tag  = document.getElementById('guild-create-tag').value.trim().toUpperCase();
+  const desc = document.getElementById('guild-create-desc').value.trim();
+  const err  = document.getElementById('guild-create-err');
+  err.style.display = 'none';
+  const res = createGuild(currentUser.id, name, tag, desc || 'Yeni bir klan!');
+  if (res.ok) {
+    currentUser = getCurrentUser();
+    document.getElementById('ov-create-guild').classList.remove('on');
+    showToast(`⚡ ${name} klana oluşturuldu!`, '#00ff88');
+    renderGuildTab();
+  } else {
+    err.textContent = res.msg; err.style.display = 'block';
+  }
+}
+
+function doJoinGuild(id) {
+  const res = joinGuild(currentUser.id, id);
+  if (res.ok) { currentUser = getCurrentUser(); showToast('⚡ Klana katıldın!', '#00ff88'); renderGuildTab(); }
+  else showToast('✗ ' + res.msg, '#ff3355');
+}
+
+function doLeaveGuild() {
+  if (!confirm('Klandan ayrılmak istediğine emin misin?')) return;
+  leaveGuild(currentUser.id);
+  currentUser = getCurrentUser();
+  showToast('Klandan ayrıldın.', '#ffbf00');
+  renderGuildTab();
+}
+
+// ────────────────────────────────────────────────────────────
+//  TAB SWITCHING
+// ────────────────────────────────────────────────────────────
+function compTab(el, tab) {
+  document.querySelectorAll('.comp-tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.tab-content').forEach(p => p.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+}
+</script>
+
+<style>
+.fld { margin-bottom: .85rem; }
+.tab-content { animation: fadeInUp .3s ease; }
+</style>
+</body>
+</html>

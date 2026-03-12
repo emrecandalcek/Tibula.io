@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="NEBULA.io — Sayfa bulunamadı">
+<title>NEBULA.io — 404</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<link rel="stylesheet" href="css/base.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+<nav id="nav">
+  <div class="nav-logo" onclick="goPage('index.html')">NEBULA<span style="-webkit-text-fill-color:var(--mag);font-size:.65em;vertical-align:super">.io</span></div>
+  <div class="nav-links">
+    <div class="nl" data-pg="index.html" onclick="goPage('index.html')">ANA SAYFA</div>
+  </div>
+  <div class="nav-right" id="nav-right"><div id="nav-user-area"></div></div>
+</nav>
+<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem;">
+  <div>
+    <div style="font-family:'Orbitron',sans-serif;font-size:6rem;font-weight:900;
+      background:linear-gradient(90deg,var(--cyan),var(--mag));-webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;line-height:1;margin-bottom:1rem;">404</div>
+    <div style="font-family:'Orbitron',sans-serif;font-size:1.1rem;color:var(--cyan);
+      letter-spacing:4px;margin-bottom:.6rem;">SAYFA BULUNAMADI</div>
+    <p style="color:var(--dim);font-size:.82rem;margin-bottom:2rem;max-width:360px;">
+      Aradığın sayfa karadeliğe çekildi. Kozmosa geri dön!
+    </p>
+    <button class="btn btn-cyan" onclick="goPage('index.html')" style="font-size:.75rem">
+      🏠 ANA SAYFAYA DÖN
+    </button>
+  </div>
+</div>
+<script src="js/core.js"></script>
+</body>
+</html>
