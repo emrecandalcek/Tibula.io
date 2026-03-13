@@ -1,20 +1,7 @@
-/* ═══════════════════════════════════════════════════════════════════
-   NEBULA.io — Multiplayer Client v5  ★★★★★ UPGRADED
-   ─────────────────────────────────────────────────────────────────
-   ✓ partPool kullanımı — eski `parts[]` array tamamen kaldırıldı,
-     game.js ParticlePool sistemiyle tam uyumlu hale getirildi
-   ✓ window._icePatches / window._neonSigns kirliliği giderildi —
-     artık game.js module-level değişkenlerine doğrudan yazılıyor
-   ✓ _mpUpdate() — boost mass drain eklendi (eksikti, boost sonsuzdu)
-   ✓ Adaptif server blend — ping'e göre otomatik ayarlama
-   ✓ Yeniden bağlanma UI — disconnect/reconnect toast gösteriliyor
-   ✓ _showDeath() — null guard'lar eklendi, saveUser güvenli çağrım
-   ✓ socket.on('treasure') — partPool.spawn kullanıyor (Particle yerine)
-   ✓ socket.on('nova_fx')  — partPool'a geçirildi
-   ✓ exitGame() — touch listener'lar da temizleniyor
-   ✓ _syncBots() — ölü bot temizleme artık güvenilir
-   ✓ selectRoom() — undefined guard eklendi
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   NEBULA.io — Multiplayer Client v4
+   4 Oda Sistemi + Food/Bot sync düzeltmesi
+═══════════════════════════════════════════════════════════ */
 
 let socket     = null;
 let myId       = null;
@@ -22,18 +9,22 @@ let selectedRoom = null;  // seçilen oda id'si
 let _leaderboard    = [];
 let _snapTreasures  = [];
 let _pingStart = 0;
-let _serverBlend    = 0.18; // adaptif: ping yükseldikçe azalır
 
-/** FIX: Adaptif server blend — ping değerine göre otomatik hesaplanır.
- * Düşük ping (<80ms) → blend yüksek (0.25): sunucu pozisyonu hızlı benimsenir.
- * Yüksek ping (>200ms) → blend düşük (0.08): client prediction ön planda kalır.
+/**
+ * FIX — Smooth server reconciliation
+ *
+ * Eski davranış: snap event'i tetiklendiğinde (~20Hz) player.x/y
+ * anında lerp ile zıplatılıyordu → kare kare ışınlanma hissi.
+ *
+ * Yeni davranış: snap geldikçe _srvX/_srvY hedefleri güncellenir,
+ * _mpUpdate() her frame (60Hz) bu hedefe doğru yumuşakça kayar.
+ * Bu sayede 20Hz server tick → 60Hz smooth görüntü.
  */
-function _calcBlend(pingMs) {
-  if (pingMs < 80)  return 0.25;
-  if (pingMs < 150) return 0.18;
-  if (pingMs < 250) return 0.12;
-  return 0.08;
-}
+let _serverBlend = 0.12;   // adaptif — ping'e göre güncellenir
+let _srvX = null;          // sunucudan gelen hedef X
+let _srvY = null;          // sunucudan gelen hedef Y
+let _srvMass = null;       // sunucudan gelen hedef kütle
+let _reconcileStrength = 0.08; // frame başına pozisyon düzeltme ağırlığı
 let _otherPlayers   = new Map();  // id → Entity
 let _foodMap        = new Map();  // foodId → Food obj
 let tickN        = 0;             // frame counter for move throttle
@@ -64,15 +55,28 @@ window.loop = function() {
 // ── Client-side prediction ────────────────────────────────────
 function _mpUpdate() {
   if (!player?.alive) return;
-  NOW = Date.now(); // per-frame time cache (animasyonlar için)
+  NOW = Date.now();
+
   if (boostCD > 0) boostCD--;
   if (novaCD  > 0) novaCD--;
   if (specCD  > 0) specCD--;
   if (player.phaseT > 0) player.phaseT--;
-  if (camShake > 0) camShake -= 0.7;
+
+  // FIX: camShake decay hızlandırıldı — önceden 0.7/frame, şimdi 0.85/frame
+  // Bu sayede sallantı çok daha hızlı söner ve "titreme" hissi azalır
+  if (camShake > 0) camShake -= 0.85;
+
   if (comboTimer > 0) {
     comboTimer--;
     if (comboTimer <= 0 && combo > 0) { combo = 0; hideCombo(); }
+  }
+
+  // FIX: Boost mass drain — önceden yoktu, boost hiç bitmiyordu
+  if (boostActive) {
+    const DRAIN = typeof BOOST_DRAIN !== 'undefined' ? BOOST_DRAIN : 0.05;
+    const MIN   = typeof BOOST_MIN_MASS !== 'undefined' ? BOOST_MIN_MASS : 8;
+    if (player.mass > MIN) player.mass -= DRAIN;
+    else boostActive = false;
   }
 
   if (gc) {
@@ -90,21 +94,39 @@ function _mpUpdate() {
     if (tickN % 2 === 0) socket?.emit('move', { wx, wy });
   }
 
-  // FIX: Boost mass drain — önceden _mpUpdate'te yoktu, boost hiç bitmiyordu.
-  // game.js'den aynı sabitleri kullanıyoruz: BOOST_DRAIN=0.05, BOOST_MIN_MASS=8
-  if (boostActive) {
-    if (player.mass > (typeof BOOST_MIN_MASS!=='undefined'?BOOST_MIN_MASS:8)) {
-      player.mass -= (typeof BOOST_DRAIN!=='undefined'?BOOST_DRAIN:0.05);
+  // ── FIX: Server reconciliation — frame'lere yayılmış smooth düzeltme ──
+  // Eski: snap event'te tek seferde lerp → her 50ms'de bir zıplama (20Hz)
+  // Yeni: hedef (_srvX/_srvY) snap'te güncellenir, burası her 60fps frame'de
+  //       küçük adımlarla hedefe yaklaşır → 60Hz smooth hareket
+  if (_srvX !== null && player) {
+    const diffX = _srvX - player.x;
+    const diffY = _srvY - player.y;
+    const dist  = Math.hypot(diffX, diffY);
+
+    if (dist > 120) {
+      // Çok uzaklaştıysak (lag spike) hızlı yaklaş
+      player.x += diffX * 0.35;
+      player.y += diffY * 0.35;
+    } else if (dist > 2) {
+      // Normal reconciliation — yumuşak sürükleme
+      player.x += diffX * _reconcileStrength;
+      player.y += diffY * _reconcileStrength;
     } else {
-      boostActive = false;
+      // Yeterince yakın — artık düzeltmeye gerek yok
+      _srvX = null; _srvY = null;
     }
+  }
+
+  // Kütle sunucudan yumuşakça senkronla
+  if (_srvMass !== null && player) {
+    player.mass += (_srvMass - player.mass) * 0.15;
+    if (Math.abs(_srvMass - player.mass) < 0.5) _srvMass = null;
   }
 
   player.trail.unshift({ x: player.x, y: player.y });
   if (player.trail.length > 18) player.trail.pop();
   maxMass = Math.max(maxMass, Math.floor(player.mass));
 
-  // FIX: parts[] yerine partPool.update() — game.js ParticlePool ile senkron
   if (S.particles) partPool.update();
 
   // Bot trail (görsel interpolasyon)
@@ -136,9 +158,11 @@ function _syncPlayers(list) {
       op.id = p.id;
       _otherPlayers.set(p.id, op);
     }
-    op.x    += (p.x - op.x) * 0.3;
-    op.y    += (p.y - op.y) * 0.3;
-    op.mass  = p.mass;
+    // FIX: 0.3 → 0.18 — diğer oyuncuların hareketi de daha yumuşak
+    // 0.3 çok hızlı yaklaşıyordu, diğerleri zıplayarak hareket ediyordu
+    op.x    += (p.x - op.x) * 0.18;
+    op.y    += (p.y - op.y) * 0.18;
+    op.mass += (p.mass - op.mass) * 0.2; // kütle de yumuşak sync
     op.alive = p.alive;
     op.phaseT = p.phaseT || 0;
     op.trail  = p.trail || [];
@@ -161,9 +185,10 @@ function _syncBots(list) {
       bot.pulseP = Math.random() * Math.PI * 2;
       bots.push(bot);
     }
-    bot.x   += (b.x - bot.x) * 0.25;
-    bot.y   += (b.y - bot.y) * 0.25;
-    bot.mass = b.mass;
+    // FIX: 0.25 → 0.15 — bot hareketi yumuşatıldı
+    bot.x   += (b.x - bot.x) * 0.15;
+    bot.y   += (b.y - bot.y) * 0.15;
+    bot.mass += (b.mass - bot.mass) * 0.18;
     bot.alive = true;
     bot.ang  = b.ang   || 0;
     bot.color = b.color;
@@ -254,8 +279,7 @@ window.render = function() {
   blackHoles.forEach(drawBH);
   wormholes.forEach(drawWH);
   drawFoodBatch();
-  // FIX: partPool.draw — kamera sınırları içinde culling ile çizim
-  if(S.particles) partPool.draw(gctx, player.x - W/(2*zoom), player.y - H/(2*zoom), W/zoom, H/zoom);
+  if(S.particles) parts.forEach(drawPart);
 
   bots.forEach(b => { if(b.alive){drawTrail(b);drawOrb(b,false);} });
   _otherPlayers.forEach(op => {
@@ -400,10 +424,8 @@ function renderLobby(rooms) {
 }
 
 window.selectRoom = function(id) {
-  // FIX: undefined guard — geçersiz oda id'si ile MAP_THEME bozulmasın
-  if (!id) return;
   selectedRoom = id;
-  MAP_THEME = id;
+  MAP_THEME = id; // tema = oda teması
   renderLobby(_lastLobbyData || []);
 };
 
@@ -421,6 +443,8 @@ window.startGame = function(){
   _otherPlayers.clear(); _foodMap.clear(); _snapTreasures=[];
   combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
   boostCD=0; novaCD=0; specCD=0; boostActive=false; tickN=0; NOW=Date.now();
+  // FIX: Önceki oturumdan kalan reconciliation hedeflerini sıfırla
+  _srvX=null; _srvY=null; _srvMass=null;
 
   const nick=(document.getElementById('game-nick')?.value||'').trim()||'Gezgin';
   const user=getCurrentUser();
@@ -472,8 +496,7 @@ window.exitGame = function(){
   const c=document.getElementById('cur');if(c)c.style.display='none';
   window.removeEventListener('mousemove',onMM);
   window.removeEventListener('keydown',onKD);
-  // FIX: touch listener'lar da temizleniyor — önceden sızıntı vardı
-  if(typeof _removeTouchListeners==='function') _removeTouchListeners();
+  // Lobby yenile
   socket?.emit('get_lobby');
 };
 window.exitToHome=function(){window.exitGame();goPage('index.html');};
@@ -484,30 +507,26 @@ window.restartFromPause=function(){
 };
 
 function _showDeath(data){
-  // FIX: data null guard — sunucudan boş veri gelebilir
-  if (!data) data = {};
-  const s=data.time||0, m=Math.floor(s/60), sec=s%60;
+  const s=data.time||0,m=Math.floor(s/60),sec=s%60;
   const q=id=>document.getElementById(id);
-  const by=q('death-by'); if(by) by.textContent=`— ${escHtml?escHtml(data.by||'?'):data.by||'?'} Tarafından —`;
-  const sc=q('death-sc'); if(sc) sc.textContent=(data.score||0).toLocaleString();
-  const ms2=q('ds-mass'); if(ms2) ms2.textContent=data.maxMass||0;
-  const kl=q('ds-kills'); if(kl) kl.textContent=data.kills||0;
-  const tm=q('ds-time');  if(tm) tm.textContent=`${m}:${String(sec).padStart(2,'0')}`;
-  const dc=q('death-coins'); if(dc) dc.textContent=Math.floor((data.score||0)/100)+' ◈';
+  const by=q('death-by');if(by)by.textContent=`— ${data.by||'?'} Tarafından —`;
+  const sc=q('death-sc');if(sc)sc.textContent=(data.score||0).toLocaleString();
+  const ms2=q('ds-mass');if(ms2)ms2.textContent=data.maxMass||0;
+  const kl=q('ds-kills');if(kl)kl.textContent=data.kills||0;
+  const tm=q('ds-time');if(tm)tm.textContent=`${m}:${String(sec).padStart(2,'0')}`;
+  const dc=q('death-coins');if(dc)dc.textContent=Math.floor((data.score||0)/100)+' ◈';
   q('ov-death')?.classList.add('on');
-
-  // FIX: saveUser/updateNavUI/levelFromXp varlık kontrolü güçlendirildi
-  const user = typeof getCurrentUser==='function' ? getCurrentUser() : null;
+  const user=getCurrentUser();
   if(user){
-    user.score     = Math.max(user.score||0, data.score||0);
-    user.kills     = (user.kills||0) + (data.kills||0);
-    user.playtime  = (user.playtime||0) + (data.time||0);
-    user.gamesPlayed = (user.gamesPlayed||0) + 1;
-    user.coins     = (user.coins||0) + Math.floor((data.score||0)/100);
-    user.xp        = (user.xp||0) + Math.floor((data.score||0)/50) + (data.kills||0)*20;
-    if(typeof levelFromXp==='function')  user.level = levelFromXp(user.xp);
-    if(typeof saveUser==='function')     saveUser(user);
-    if(typeof updateNavUI==='function')  updateNavUI();
+    user.score=Math.max(user.score||0,data.score||0);
+    user.kills=(user.kills||0)+(data.kills||0);
+    user.playtime=(user.playtime||0)+(data.time||0);
+    user.gamesPlayed=(user.gamesPlayed||0)+1;
+    user.coins=(user.coins||0)+Math.floor((data.score||0)/100);
+    user.xp=(user.xp||0)+Math.floor((data.score||0)/50)+(data.kills||0)*20;
+    if(typeof levelFromXp==='function') user.level=levelFromXp(user.xp);
+    if(typeof saveUser==='function') saveUser(user);
+    if(typeof updateNavUI==='function') updateNavUI();
   }
 }
 
@@ -544,15 +563,7 @@ function _connectSocket(){
     _ensurePingUI(); _sendPing();
     socket.emit('get_lobby');
   });
-  socket.on('disconnect', reason => {
-    console.warn('⚠ Bağlantı kesildi:', reason);
-    // FIX: Kullanıcıya görünür bildirim — önceden sadece console.warn vardı
-    showToast('⚠️ Sunucu bağlantısı kesildi! Yeniden bağlanılıyor...', '#ff6600', 4000);
-  });
-  socket.on('reconnect', attempt => {
-    showToast(`✅ Yeniden bağlandı (deneme ${attempt})`, '#00ff88', 2500);
-    socket.emit('get_lobby');
-  });
+  socket.on('disconnect',()=>console.warn('⚠ Bağlantı kesildi'));
 
   // Lobby bilgisi
   socket.on('lobby_info', rooms => {
@@ -575,37 +586,53 @@ function _connectSocket(){
     clusters=data.clusters||[];
     safeZones=data.safeZones||[];
     _syncFood(data.food||[]);
-    // FIX: window.* yerine game.js module-level değişkenlerine doğrudan yaz
-    _icePatches = MAP_THEME==='buzul'
-      ? [[1000,1000],[3000,800],[800,3500],[4000,2500],[2500,2000],[3200,3800]].map(p=>({x:p[0],y:p[1],r:160+Math.random()*80}))
-      : [];
-    _neonSigns = MAP_THEME==='neon'
-      ? Array.from({length:20},()=>({x:200+Math.random()*4600,y:200+Math.random()*4600,w:80+Math.random()*120,h:40+Math.random()*60,hue:Math.random()*360,ang:0}))
-      : [];
+    window._icePatches=MAP_THEME==='buzul'
+      ?[[1000,1000],[3000,800],[800,3500],[4000,2500],[2500,2000],[3200,3800]].map(p=>({x:p[0],y:p[1],r:160+Math.random()*80})):[];
+    window._neonSigns=MAP_THEME==='neon'
+      ?Array.from({length:20},()=>({x:200+Math.random()*4600,y:200+Math.random()*4600,w:80+Math.random()*120,h:40+Math.random()*60,hue:Math.random()*360,ang:0})):[];
     _updateThemeBadge(MAP_THEME);
     console.log('🌍 Dünya hazır:',MAP_THEME,'| Yem:',data.food?.length,'| Asteroid:',data.asteroids?.length);
   });
 
   // Snapshot
-  socket.on('snap',data=>{
-    if(!myId&&socket.id){myId=socket.id;if(player)player.id=myId;}
-    const me=data.players?.find(p=>p.id===myId);
-    if(me&&player?.alive){
-      player.x+=(me.x-player.x)*_serverBlend;
-      player.y+=(me.y-player.y)*_serverBlend;
-      player.mass=me.mass; player.phaseT=me.phaseT||0;
-      score=me.score||score;
+  socket.on('snap', data => {
+    if (!myId && socket.id) { myId = socket.id; if (player) player.id = myId; }
+
+    const me = data.players?.find(p => p.id === myId);
+    if (me && player?.alive) {
+      /**
+       * FIX: "Kare kare ışınlanma" düzeltmesi
+       *
+       * ESKİ KOD:
+       *   player.x += (me.x - player.x) * _serverBlend;   // snap'te anında uygula
+       *   player.mass = me.mass;                            // anında değiştir
+       * → Her snap geldiğinde (~20Hz = her 50ms) player pozisyonu sıçrıyordu.
+       *   Bu, 60fps render üzerinde görsel "atlama" olarak hissediliyordu.
+       *
+       * YENİ KOD:
+       *   _srvX/_srvY'yi güncelle → _mpUpdate() her frame yumuşakça ilerler
+       *   Kütle de _srvMass ile frame'lere yayılmış şekilde senkronlanır
+       */
+      _srvX    = me.x;
+      _srvY    = me.y;
+      _srvMass = me.mass;
+      player.phaseT = me.phaseT || 0;
+      score = me.score || score;
     }
+
     _syncPlayers(data.players);
     _syncBots(data.bots);
     _syncFood(data.food);
-    _snapTreasures=data.treasures||[];
-    if(data.asteroids) asteroids=data.asteroids;
-    if(data.wormholes) wormholes=data.wormholes;
-    if(data.blackHoles) blackHoles=data.blackHoles;
-    if(data.boostCD!=null) boostCD=data.boostCD;
-    if(data.novaCD !=null) novaCD=data.novaCD;
-    if(data.specCD !=null) specCD=data.specCD;
+    _snapTreasures = data.treasures || [];
+    if (data.asteroids)  asteroids  = data.asteroids;
+    if (data.wormholes)  wormholes  = data.wormholes;
+    if (data.blackHoles) blackHoles = data.blackHoles;
+
+    // Cooldown sync — sunucu yetkili, ama client tahminini tamamen ezme
+    // Sadece büyük fark varsa güncelle (küçük farklar client prediction'ı bozmaz)
+    if (data.boostCD != null && Math.abs((data.boostCD||0) - boostCD) > 8) boostCD = data.boostCD;
+    if (data.novaCD  != null && Math.abs((data.novaCD||0)  - novaCD)  > 8) novaCD  = data.novaCD;
+    if (data.specCD  != null && Math.abs((data.specCD||0)  - specCD)  > 8) specCD  = data.specCD;
   });
 
   socket.on('leaderboard',data=>{_leaderboard=data;});
@@ -634,11 +661,7 @@ function _connectSocket(){
     sfxTreasure();if(S.shake)camShake=8;
     if(S.particles){
       burstParts(x,y,col||'#ffbf00',28);
-      // FIX: Particle class yerine partPool.spawn — GC baskısı azalır
-      for(let i=0;i<6;i++){
-        const a=(i/6)*Math.PI*2;
-        partPool.spawn(x,y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true);
-      }
+      for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;parts.push(new Particle(x,y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true));}
     }
     score+=(coins||0)*2;
     showToast(`${['🥉','🥈','🥇'][tier||0]} Hazine! +◈${coins} +${m} Kütle`,col||'#ffbf00',2500);
@@ -646,12 +669,8 @@ function _connectSocket(){
 
   socket.on('nova_fx',({x,y,color})=>{
     if(S.particles){
-      // FIX: partPool.spawn kullanımı — Particle push yerine pool reuse
-      for(let i=0;i<50;i++){
-        const a=(i/50)*Math.PI*2, s=3+Math.random()*5;
-        partPool.spawn(x,y,Math.cos(a)*s,Math.sin(a)*s,color||'#00e0ff',32,2.5+Math.random()*3);
-      }
-      for(let i=0;i<3;i++) partPool.spawn(x,y,0,0,color||'#00e0ff',45+i*8,25+i*15,true);
+      for(let i=0;i<50;i++){const a=(i/50)*Math.PI*2,s=3+Math.random()*5;parts.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,color||'#00e0ff',32,2.5+Math.random()*3));}
+      for(let i=0;i<3;i++)parts.push(new Particle(x,y,0,0,color||'#00e0ff',45+i*8,25+i*15,true));
     }
     if(S.shake)camShake=5;
   });
@@ -661,9 +680,15 @@ function _connectSocket(){
     if(S.particles)burstParts(x,y,cols[el]||'#fff',28);
   });
 
-  socket.on('wormhole',({x,y})=>{
-    sfxWormhole();doFlash();
-    if(player){player.x=x;player.y=y;player.trail=[];}
+  socket.on('wormhole', ({x, y}) => {
+    sfxWormhole(); doFlash();
+    if (player) {
+      // FIX: Wormhole çıkışında da reconciliation state temizle
+      // Önceden _srvX/_srvY eski konumdaydı → çıkışta geri çekilme oluyordu
+      player.x = x; player.y = y; player.trail = [];
+      player.vx = 0; player.vy = 0;
+      _srvX = null; _srvY = null;
+    }
   });
 
   socket.on('food_eaten',ids=>{
@@ -685,21 +710,23 @@ function _connectSocket(){
     gameRunning=true;if(!raf)raf=requestAnimationFrame(loop);
   });
 
-  socket.on('pong_mp',()=>{
-    const ms=Date.now()-_pingStart;
-    _serverBlend = _calcBlend(ms); // FIX: adaptif blend güncelle
+  socket.on('pong_mp', () => {
+    const ms = Date.now() - _pingStart;
+
+    // FIX: Hem server blend hem de reconcile strength ping'e göre ayarlanıyor
+    // Düşük ping → daha güçlü düzeltme (sunucu pozisyonuna daha hızlı yaklaş)
+    // Yüksek ping → daha yavaş düzeltme (client prediction'ı koru, titreme azalsın)
+    if      (ms < 60)  { _serverBlend = 0.20; _reconcileStrength = 0.12; }
+    else if (ms < 120) { _serverBlend = 0.14; _reconcileStrength = 0.09; }
+    else if (ms < 200) { _serverBlend = 0.10; _reconcileStrength = 0.06; }
+    else               { _serverBlend = 0.06; _reconcileStrength = 0.04; }
+
     _updatePingUI(ms);
-    setTimeout(_sendPing,3000);
+    setTimeout(_sendPing, 3000);
   });
 }
 
-window.addEventListener('resize',()=>{
-  if(gameRunning&&gc){
-    gc.width=innerWidth; gc.height=innerHeight;
-    // FIX: mmCanvas da yeniden boyutlandırılıyor (eksikti)
-    if(mmCanvas){ mmCanvas.width=mmCanvas.offsetWidth||160; mmCanvas.height=mmCanvas.offsetHeight||160; }
-  }
-});
+window.addEventListener('resize',()=>{if(gameRunning&&gc){gc.width=innerWidth;gc.height=innerHeight;}});
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{

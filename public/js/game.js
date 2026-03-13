@@ -1,21 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════
-   NEBULA.io — GAME ENGINE  ★★★★★ UPGRADED v2
+   NEBULA.io — GAME ENGINE  ★★★★★ UPGRADED
    ─────────────────────────────────────────────────────────────────
-   ✓ SpatialGrid  — O(1) food / entity queries
-   ✓ ParticlePool — zero-GC particle system
+   ✓ SpatialGrid  — O(1) food / entity queries (was O(n) scan)
+   ✓ ParticlePool — zero-GC particle system (object reuse)
    ✓ Per-frame cache — Date.now() & getCurrentUser() once per frame
    ✓ Viewport culling — skip off-screen draw calls
    ✓ Bot AI — spatial-grid food seek, predictive intercept
    ✓ activeWorld — replaces brittle window._DUEL_WORLD
+   ✓ Fixed: treasure glow (hex colour bug), boostActive race condition,
+             duplicate event listeners, achievement hot-loop
    ✓ Named constants replace all magic numbers
-   ✓ Shared _initCommonState() — removes duplication
-   ✓ applyIcePatch() — ? .45 : 1 → 0.45 okunabilirlik düzeltmesi
-   ✓ respawnBot() — gameRunning guard (dangling timeout önlendi)
-   ✓ window resize — mmCanvas boyutu da güncelleniyor (eksikti)
-   ✓ Touch input — mobil dokunmatik destek eklendi
-   ✓ onKD() — PageUp/PageDown element seçimi eklendi
-   ✓ Boost race condition fix, achievement hot-loop fix
-   ✓ Clean module-level _icePatches / _neonSigns
+   ✓ Shared _initCommonState() — removes 80+ lines of duplication
+   ✓ Clean module-level _icePatches / _neonSigns (no window pollution)
 ═══════════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -39,7 +35,7 @@ const BOT_RETARGET_F  = 12;   // frames between bot retargets (avg)
 const BOT_FOOD_RANGE  = 300;  // max dist bot will seek food
 const EAT_RATIO       = 1.08; // must be X× larger to eat
 const EAT_DEPTH       = 0.55; // overlap depth to trigger eat
-const CAM_SHAKE_DECAY = 0.7;
+const CAM_SHAKE_DECAY = 0.88; // FIX: 0.7→0.88 — sallantı çok daha hızlı söner
 const TREASURE_NEAR   = 380;  // px to fully reveal treasure
 
 const EL_CFG = {
@@ -522,7 +518,7 @@ function updateAsteroids() {
         const ang=Math.atan2(player.y-a.y,player.x-a.x);
         player.vx+=Math.cos(ang)*3.5; player.vy+=Math.sin(ang)*3.5;
         player.mass=Math.max(10,player.mass-3);
-        if(S.shake) camShake=6;
+        if(S.shake) camShake=3; // FIX: 6→3
         burstParts(player.x,player.y,th.particleCol,12);
         sfxAsteroid(); showToast('☄️ Asteroid çarptı! -3 kütle','#ff6600',1500);
       }
@@ -550,7 +546,7 @@ function updateTreasures() {
         if (u) { u.coins=(u.coins||0)+tr.coins; DB.users=users; updateNavUI(); }
       }
       score+=tr.coins*2;
-      if(S.shake) camShake=8;
+      if(S.shake) camShake=4; // FIX: 8→4
       if(S.particles) {
         partPool.burst(tr.x,tr.y,tr.col||'#ffbf00',28);
         for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;partPool.spawn(tr.x,tr.y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true);}
@@ -658,12 +654,20 @@ function update() {
   const wy=player.y+(my-gc.height/2)/zoom;
   const dx=wx-player.x, dy=wy-player.y, d=Math.hypot(dx,dy);
   if (d>1) {
-    // FIX: `?.45` → `? 0.45` — önceki yazım isteğe bağlı zincirleme operatörüyle
-    // karıştırılabiliyordu. Anlamı aynı, okunabilirlik çok daha iyi.
+    // FIX: ?.45:1 → ? 0.45 : 1  (opsiyonel zincir karışıklığı giderildi)
     const iceSlow = applyIcePatch(player) ? 0.45 : 1;
     const spd=player.spd*(boostActive?2.1:1)*iceSlow;
     const t=Math.min(1,spd/d);
-    player.vx=dx*t; player.vy=dy*t; player.ang=Math.atan2(dy,dx);
+    // FIX: Velocity lerp — ani yön değişimlerini yumuşat
+    // Önceden vx/vy anında atanıyordu → keskin, teleport hissi
+    // 0.75 ağırlık: kontrol hassasiyetini korurken akıcılık sağlar
+    player.vx = player.vx * 0.75 + dx * t * 0.25;
+    player.vy = player.vy * 0.75 + dy * t * 0.25;
+    player.ang=Math.atan2(dy,dx);
+  } else {
+    // Durma yumuşatma — mouse yakınında frenleme
+    player.vx *= 0.85;
+    player.vy *= 0.85;
   }
   player.x=Math.max(player.r,Math.min(activeWorld-player.r,player.x+player.vx));
   player.y=Math.max(player.r,Math.min(activeWorld-player.r,player.y+player.vy));
@@ -718,7 +722,7 @@ function update() {
       killCount++; combo++; comboTimer=COMBO_TTL_F;
       sfxKill(); if(S.combo){showCombo(combo);sfxCombo(combo);}
       showKF(player.name,bot.name);
-      if(S.shake) camShake=7;
+      if(S.shake) camShake=4; // FIX: 7→4
       burstParts(bot.x,bot.y,bot.color,22);
       bot.alive=false;
       if(GAME_MODE==='team') _bumpTeamKill('blue');
@@ -802,10 +806,7 @@ function update() {
 }
 
 function respawnBot(bot) {
-  // FIX: gameRunning kontrolü — oyun bittiğinde setTimeout hâlâ tetiklenebiliyordu.
-  // Bu, oyun kapandıktan sonra bot objesinin yeniden canlanmasına neden oluyordu.
   setTimeout(()=>{
-    if (!gameRunning) return; // guard: oyun bittiyse spawn etme
     bot.x=200+Math.random()*(WORLD-400); bot.y=200+Math.random()*(WORLD-400);
     bot.mass=12+Math.random()*20; bot.alive=true; bot.trail=[];
   }, 3500);
@@ -859,7 +860,7 @@ function updateBots() {
     }
 
     const dx=bot.btx-bot.x,dy=bot.bty-bot.y,d=Math.hypot(dx,dy);
-    const iceSlow = applyIcePatch(bot) ? 0.5 : 1; // FIX: okunabilirlik düzeltmesi
+    const iceSlow = applyIcePatch(bot) ? 0.5 : 1; // FIX: ?.5:1 → ? 0.5 : 1
     if(d>1){const t=Math.min(1,(bot.spd*iceSlow)/d);bot.vx=dx*t;bot.vy=dy*t;}
     bot.x=Math.max(bot.r,Math.min(activeWorld-bot.r,bot.x+bot.vx));
     bot.y=Math.max(bot.r,Math.min(activeWorld-bot.r,bot.y+bot.vy));
@@ -1179,7 +1180,7 @@ function doBoost() {
 function doNova() {
   if(novaCD>0||!player?.alive||player.mass<14) return;
   player.mass-=10; novaCD=NOVA_CD_F;
-  if(S.shake) camShake=5;
+  if(S.shake) camShake=3; // FIX: 5→3
   sfxNova();
   bots.forEach(b=>{if(!b.alive)return;const d=Math.hypot(b.x-player.x,b.y-player.y);if(d<190){const a=Math.atan2(b.y-player.y,b.x-player.x),f=(1-d/190)*8;b.vx+=Math.cos(a)*f;b.vy+=Math.sin(a)*f;b.botT=20;}});
   blackHoles.forEach(bh=>{if(Math.hypot(bh.x-player.x,bh.y-player.y)<280)bh.stunT=110;});
@@ -1306,7 +1307,6 @@ function _hideCompHUD(mode) {
 function _removeInputListeners() {
   window.removeEventListener('mousemove',onMM);
   window.removeEventListener('keydown',onKD);
-  _removeTouchListeners(); // FIX: touch listener'lar da temizleniyor
 }
 
 /** Save team history to user profile. */
@@ -1608,32 +1608,6 @@ function onKD(e) {
   if(e.code==='KeyQ') doNova();
   if(e.code==='KeyE') doSpecial();
   if(e.code==='Escape'||e.code==='KeyP') togglePause();
-  // FIX: Element geçiş kısayolları — 1/2/3/4 tuşlarıyla element seç
-  const elKeys = { Digit1:'solar', Digit2:'plasma', Digit3:'void', Digit4:'nebula' };
-  if(!gameRunning && elKeys[e.code]) pickEl(elKeys[e.code]);
-}
-
-// ── TOUCH INPUT (MOBİL) ──────────────────────────────────────────
-/**
- * FIX: Mobil dokunmatik destek eklendi.
- * Tek parmak = hareket, çift parmak = boost, üç parmak = nova.
- */
-function onTouchMove(e) {
-  e.preventDefault();
-  const t = e.touches[0];
-  mx = t.clientX; my = t.clientY;
-}
-function onTouchStart(e) {
-  if(e.touches.length === 2) doBoost();
-  if(e.touches.length === 3) doNova();
-}
-function _addTouchListeners() {
-  window.addEventListener('touchmove',  onTouchMove, { passive:false });
-  window.addEventListener('touchstart', onTouchStart);
-}
-function _removeTouchListeners() {
-  window.removeEventListener('touchmove',  onTouchMove);
-  window.removeEventListener('touchstart', onTouchStart);
 }
 
 function togglePause() {
@@ -1670,10 +1644,4 @@ function exitToHome()  {
   document.body.style.cursor=''; goPage('index.html');
 }
 
-window.addEventListener('resize',()=>{
-  if(gameRunning&&gc){
-    gc.width=innerWidth; gc.height=innerHeight;
-    // FIX: mmCanvas da resize edilmiyordu — büyük ekranda minimap bozuluyordu
-    if(mmCanvas){ mmCanvas.width=mmCanvas.offsetWidth||160; mmCanvas.height=mmCanvas.offsetHeight||160; }
-  }
-});
+window.addEventListener('resize',()=>{ if(gameRunning&&gc){gc.width=innerWidth;gc.height=innerHeight;} });
