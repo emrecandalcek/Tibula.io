@@ -12,6 +12,22 @@ let _pingStart = 0;
 let _serverBlend    = 0.18;
 let _otherPlayers   = new Map();  // id → Entity
 let _foodMap        = new Map();  // foodId → Food obj
+let tickN        = 0;             // frame counter for move throttle
+
+/** Draw a single Particle object. Used by parts.forEach(drawPart). */
+function drawPart(p) {
+  if (!p.alive) return;
+  const a = p.life / p.ml;
+  gctx.globalAlpha = a;
+  if (p.ring) {
+    gctx.strokeStyle = p.color; gctx.lineWidth = 1.8;
+    gctx.beginPath(); gctx.arc(p.x, p.y, p.size * (1 - a) * 4, 0, Math.PI * 2); gctx.stroke();
+  } else {
+    gctx.fillStyle = p.color;
+    gctx.beginPath(); gctx.arc(p.x, p.y, Math.max(0.4, p.size * a), 0, Math.PI * 2); gctx.fill();
+  }
+  gctx.globalAlpha = 1;
+}
 
 // ── loop override ─────────────────────────────────────────────
 window.loop = function() {
@@ -24,6 +40,7 @@ window.loop = function() {
 // ── Client-side prediction ────────────────────────────────────
 function _mpUpdate() {
   if (!player?.alive) return;
+  NOW = Date.now(); // per-frame time cache (animasyonlar için)
   if (boostCD > 0) boostCD--;
   if (novaCD  > 0) novaCD--;
   if (specCD  > 0) specCD--;
@@ -289,7 +306,8 @@ window.updateHUD = function(){
 window.doBoost = function(){
   if(boostCD>0||!player?.alive) return;
   boostActive=true; boostCD=120;
-  setTimeout(()=>{if(player)boostActive=false;},480);
+  // FIX: setTimeout kaldırıldı — mass drain'i game.js update() değil, _mpUpdate içindeki
+  // boostActive flag'i yönetir. server snap'i boostCD'yi sync eder.
   sfxBoost(); socket?.emit('boost');
 };
 window.doNova = function(){
@@ -368,7 +386,7 @@ window.startGame = function(){
   wormholes=[]; blackHoles=[]; asteroids=[]; safeZones=[];
   _otherPlayers.clear(); _foodMap.clear(); _snapTreasures=[];
   combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
-  boostCD=0; novaCD=0; specCD=0; boostActive=false; tickN=0;
+  boostCD=0; novaCD=0; specCD=0; boostActive=false; tickN=0; NOW=Date.now();
 
   const nick=(document.getElementById('game-nick')?.value||'').trim()||'Gezgin';
   const user=getCurrentUser();
