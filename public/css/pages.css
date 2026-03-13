@@ -1,3 +1,10 @@
+/* ── PAGES.CSS  ★★★★★ ──
+   ✓ Leaderboard — mobilde 3 sütunlu basit görünüm
+   ✓ Admin table — yatay kaydırma ile aşılabilir min-width
+   ✓ Settings toggle — büyük dokunmatik hedef
+   ✓ prefers-reduced-motion eklendi
+*/
+
 /* ── AUTH ── */
 .auth-wrap {
   flex:1; display:flex; align-items:center; justify-content:center;
@@ -192,3 +199,34 @@
 }
 .search-inp:focus { border-color:var(--cyan); }
 .search-inp::placeholder { color:var(--dim); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 640px) {
+  /* Leaderboard — 2 sütun: skor ve öldürme gizle */
+  .lb-head { grid-template-columns:40px 1fr 90px; }
+  .lb-row  { grid-template-columns:40px 1fr 90px; }
+  .lb-d.ki, .lb-d.ti, .lb-head span:nth-child(4),
+  .lb-head span:nth-child(5) { display:none; }
+  .lb-av { width:22px; height:22px; font-size:.6rem; }
+  .lb-pn { font-size:.74rem; }
+
+  /* Auth */
+  .auth-box { padding:1.8rem 1.2rem; }
+
+  /* Settings */
+  .s-row { flex-wrap:wrap; gap:.6rem; }
+  .s-row .tog { flex-shrink:0; }
+  .s-sl { width:100%; }
+}
+
+/* Dokunmatik hedef büyütme — toggle için */
+.tog { min-width:44px; min-height:44px; height:auto; padding:11px 0; }
+.tog::after { top:50%; transform:translateY(-50%); left:3px; }
+.tog.on::after { transform:translateY(-50%) translateX(22px); }
+
+/* ── REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  .auth-btn:hover { transform:none !important; }
+  .tog { transition:none; }
+  .tog::after { transition:none; }
+}

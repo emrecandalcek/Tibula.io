@@ -8,6 +8,8 @@
 <title>NEBULA.io — Kayıt Ol</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/pages.css">
+<meta property="og:title" content="NEBULA.io — Kayıt Ol">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -27,7 +29,12 @@
     <div class="auth-err" id="reg-err"></div>
     <div class="fld"><label>KULLANICI ADI</label><input type="text" id="rg-user" placeholder="3–16 karakter" maxlength="16" autofocus></div>
     <div class="fld"><label>E-POSTA</label><input type="email" id="rg-mail" placeholder="email@örnek.com"></div>
-    <div class="fld"><label>ŞİFRE</label><input type="password" id="rg-pass" placeholder="en az 6 karakter"></div>
+    <div class="fld">
+      <label>ŞİFRE</label>
+      <input type="password" id="rg-pass" placeholder="en az 6 karakter" oninput="checkPassStrength(this.value)">
+      <div id="pass-strength-bar" style="height:3px;border-radius:2px;margin-top:4px;width:0%;transition:all .3s;background:var(--red)"></div>
+      <div id="pass-strength-txt" style="font-size:.6rem;color:var(--dim);margin-top:2px;font-family:'Orbitron',sans-serif;letter-spacing:1px"></div>
+    </div>
     <div class="fld"><label>ŞİFRE (TEKRAR)</label><input type="password" id="rg-pass2" placeholder="şifreyi tekrar gir" onkeydown="if(event.key==='Enter')doRegister()"></div>
     <div style="margin-bottom:1rem;padding:.7rem;background:rgba(0,224,255,.04);border:1px solid var(--border);border-radius:var(--r);font-size:.72rem;color:var(--dim);">
       🎁 Kayıt bonusu: <strong style="color:var(--gold)">500 ◈</strong> başlangıç altını!
@@ -39,6 +46,29 @@
 
 <script src="js/core.js"></script>
 <script>
+// Şifre gücü göstergesi
+function checkPassStrength(pass) {
+  const bar = document.getElementById('pass-strength-bar');
+  const txt = document.getElementById('pass-strength-txt');
+  if (!bar || !txt) return;
+  let score = 0;
+  if (pass.length >= 6)  score++;
+  if (pass.length >= 10) score++;
+  if (/[A-Z]/.test(pass)) score++;
+  if (/[0-9]/.test(pass)) score++;
+  if (/[^A-Za-z0-9]/.test(pass)) score++;
+  const levels = [
+    { w:'0%',   c:'transparent', l:'' },
+    { w:'25%',  c:'#ff3355',     l:'ZAYIF' },
+    { w:'50%',  c:'#ff8800',     l:'ORTA' },
+    { w:'75%',  c:'#ffbf00',     l:'İYİ' },
+    { w:'100%', c:'#00ff88',     l:'GÜÇLÜ' },
+  ];
+  const lv = levels[Math.min(score, 4)];
+  bar.style.width = lv.w; bar.style.background = lv.c;
+  txt.textContent = lv.l; txt.style.color = lv.c;
+}
+
 function doRegister() {
   const name  = document.getElementById('rg-user').value.trim();
   const email = document.getElementById('rg-mail').value.trim();
@@ -47,7 +77,10 @@ function doRegister() {
   const err   = document.getElementById('reg-err');
   err.classList.remove('on');
   if (name.length < 3)  { err.textContent = 'Kullanıcı adı en az 3 karakter.'; err.classList.add('on'); return; }
+  if (name.length > 16) { err.textContent = 'Kullanıcı adı en fazla 16 karakter.'; err.classList.add('on'); return; }
   if (!/^[a-zA-Z0-9_]+$/.test(name)) { err.textContent = 'Sadece harf, rakam ve _ kullanılabilir.'; err.classList.add('on'); return; }
+  // FIX: e-posta formatı regex kontrolü (önceden yoktu)
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Geçerli bir e-posta adresi gir.'; err.classList.add('on'); return; }
   if (pass.length < 6)  { err.textContent = 'Şifre en az 6 karakter.'; err.classList.add('on'); return; }
   if (pass !== pass2)   { err.textContent = 'Şifreler eşleşmiyor.'; err.classList.add('on'); return; }
   const users = DB.users;

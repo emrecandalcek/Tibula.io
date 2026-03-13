@@ -8,6 +8,8 @@
 <title>NEBULA.io — Giriş Yap</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/pages.css">
+<meta property="og:title" content="NEBULA.io — Giriş Yap">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -29,10 +31,11 @@
     <div class="fld"><label>ŞİFRE</label><input type="password" id="li-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="auth-btn" onclick="doLogin()">GİRİŞ YAP</button>
     <div class="divider"></div>
-    <div style="background:rgba(0,224,255,.04);border:1px solid var(--border);border-radius:var(--r);padding:.9rem;font-size:.72rem;color:var(--dim);margin-bottom:1rem;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:.58rem;letter-spacing:2px;color:var(--cyan);margin-bottom:.5rem;">TEST HESAPLARI</div>
-      <div>Admin: <strong style="color:var(--txt)">Admin</strong> / <strong style="color:var(--txt)">admin123</strong></div>
-      <div>Oyuncu: <strong style="color:var(--txt)">StarDevil</strong> / <strong style="color:var(--txt)">test123</strong></div>
+    <!-- DEV ONLY: Test hesapları — production'da kaldırılmalı
+         Admin: Admin / admin123  |  Oyuncu: StarDevil / test123 -->
+    <div id="dev-hint" style="background:rgba(255,191,0,.05);border:1px dashed rgba(255,191,0,.25);border-radius:var(--r);padding:.8rem;font-size:.7rem;color:rgba(255,191,0,.6);margin-bottom:1rem;display:none">
+      <div style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:2px;margin-bottom:.4rem;">⚠ GELİŞTİRİCİ MODU</div>
+      <div>Admin: <strong>Admin</strong> / admin123 &nbsp;·&nbsp; Oyuncu: <strong>StarDevil</strong> / test123</div>
     </div>
     <div class="auth-link">Hesabın yok mu? <a onclick="goPage('register.html')">Kayıt Ol</a></div>
   </div>
@@ -40,19 +43,52 @@
 
 <script src="js/core.js"></script>
 <script>
+// Brute-force koruması: localStorage tabanlı deneme sayacı
+const _LF_KEY = 'neb_lf';
+function _getFailData() { try { return JSON.parse(localStorage.getItem(_LF_KEY)||'{"n":0,"t":0}'); } catch{ return {n:0,t:0}; } }
+function _setFailData(d) { localStorage.setItem(_LF_KEY, JSON.stringify(d)); }
+const _MAX_TRIES = 8, _LOCKOUT_MS = 5 * 60 * 1000; // 8 deneme, 5 dk kilitleme
+
 function doLogin() {
   const name = document.getElementById('li-user').value.trim();
   const pass = document.getElementById('li-pass').value;
   const err  = document.getElementById('login-err');
   err.classList.remove('on');
+
+  // Kilitli mi?
+  const fd = _getFailData();
+  if (fd.n >= _MAX_TRIES && Date.now() - fd.t < _LOCKOUT_MS) {
+    const rem = Math.ceil((_LOCKOUT_MS - (Date.now()-fd.t)) / 60000);
+    err.textContent = `Çok fazla başarısız deneme. ${rem} dakika bekle.`;
+    err.classList.add('on'); return;
+  }
+
   if (!name || !pass) { err.textContent = 'Tüm alanları doldur.'; err.classList.add('on'); return; }
+
   const user = DB.users.find(u => u.name.toLowerCase() === name.toLowerCase() && u.pass === pass);
-  if (!user)  { err.textContent = 'Kullanıcı adı veya şifre hatalı.'; err.classList.add('on'); return; }
+  if (!user) {
+    const nd = { n: (fd.n||0)+1, t: Date.now() };
+    _setFailData(nd);
+    const left = _MAX_TRIES - nd.n;
+    err.textContent = left > 0
+      ? `Kullanıcı adı veya şifre hatalı. (${left} deneme kaldı)`
+      : 'Hesap kilitlendi. 5 dakika bekle.';
+    err.classList.add('on'); return;
+  }
   if (user.banned) { err.textContent = 'Bu hesap banlı. Yöneticiyle iletişime geç.'; err.classList.add('on'); return; }
+
+  // Başarılı — sayacı sıfırla
+  _setFailData({n:0, t:0});
   user.lastLogin = Date.now();
   saveUser(user);
   DB.session = user.id;
   goPage('index.html');
+}
+
+// Dev hint: localhost'ta göster
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  const dh = document.getElementById('dev-hint');
+  if (dh) dh.style.display = 'block';
 }
 </script>
 </body>

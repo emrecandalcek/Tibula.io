@@ -8,6 +8,12 @@
 <title>NEBULA.io — Ana Sayfa</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/home.css">
+<!-- Open Graph -->
+<meta property="og:title" content="NEBULA.io — Kozmosa Hükmet">
+<meta property="og:description" content="4 element seç, yıldızları yut, çok oyunculu uzay arenasında zirvede ol!">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#00e0ff">
+<noscript><style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;color:#aaa;background:#020210;text-align:center}}</style><p>NEBULA.io JavaScript gerektiriyor. Lütfen tarayıcınızda JavaScript'i etkinleştirin.</p></noscript>
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -137,7 +143,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;border:1.5px solid ${elCol};background:${elCol}22">
           ${EL_ICONS[topEl]||EL_ICONS.plasma}</div>
         <div>
-          <span style="font-weight:600;font-size:.82rem;display:block">${u.name}</span>
+          <span style="font-weight:600;font-size:.82rem;display:block">${escHtml(u.name)}</span>
           <span style="font-size:.55rem;color:var(--dim);font-family:'Orbitron',sans-serif">Lv.${u.level||1}</span>
         </div>
       </div>

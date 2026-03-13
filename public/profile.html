@@ -8,6 +8,8 @@
 <title>NEBULA.io — Profil</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/profile.css">
+<meta property="og:title" content="NEBULA.io — Profil">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -161,8 +163,9 @@ function renderProfile(user) {
   const actx = ac.getContext('2d');
   const skinColors = { default:'#00e0ff', solar_sk:'#ffbf00', void_sk:'#a040ff', nova_sk:'#ff8800', ice_sk:'#88ddff', nebula_sk:'#ff00d4', crystal_sk:'#00ffcc', dragon_sk:'#ff4422', ghost_sk:'#aaaaff', toxic_sk:'#88ff00', lava_sk:'#ff5500', storm_sk:'#5599ff' };
   const color = skinColors[user.equipped?.skin] || '#00e0ff';
-  (function drawAvatar() {
-    requestAnimationFrame(drawAvatar);
+  let _avatarRaf = null;
+  function drawAvatar() {
+    _avatarRaf = requestAnimationFrame(drawAvatar);
     const t = Date.now() * .001, W = 100, H = 100, cx = 50, cy = 50, r = 38;
     actx.clearRect(0,0,W,H);
     const pulse = 1 + .03*Math.sin(t*2);
@@ -180,7 +183,10 @@ function renderProfile(user) {
     actx.fillStyle = 'rgba(255,255,255,.8)'; actx.font = 'bold 18px Exo 2,sans-serif';
     actx.textAlign = 'center'; actx.textBaseline = 'middle';
     actx.fillText(user.name.slice(0,2).toUpperCase(), cx, cy);
-  })();
+  }
+  drawAvatar();
+  // FIX: Sayfa değiştirildiğinde avatar animasyonu temizleniyor
+  window.addEventListener('pagehide', () => { if(_avatarRaf) cancelAnimationFrame(_avatarRaf); }, {once:true});
 
   // Name / role
   document.getElementById('p-name').textContent = user.name;
@@ -213,7 +219,9 @@ function renderProfile(user) {
   };
   const eqRow = document.getElementById('equipped-row');
   const EQ_ICONS = { skins:'🎨', trails:'✨', effects:'💫' };
-  eqRow.innerHTML = Object.entries({ skins: user.equipped.skin, trails: user.equipped.trail, effects: user.equipped.effect }).map(([cat, id]) =>
+  // FIX: user.equipped null guard — yeni kayıtlı kullanıcıda undefined olabiliyordu
+  const equipped = user.equipped || { skin:'default', trail:'none', effect:'none_e' };
+  eqRow.innerHTML = Object.entries({ skins: equipped.skin, trails: equipped.trail, effects: equipped.effect }).map(([cat, id]) =>
     `<div class="eq-chip">${EQ_ICONS[cat]} <span>${EQ_MAP[cat][id] || id}</span></div>`
   ).join('');
 

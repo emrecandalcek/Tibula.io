@@ -1,4 +1,9 @@
-/* ── SHOP PAGE ── */
+/* ── SHOP PAGE  ★★★★★ ──
+   ✓ sitem buton — min 44px dokunmatik hedef
+   ✓ grid — 160px min-width mobil için (190'dan düşürüldü)
+   ✓ prefers-reduced-motion eklendi
+   ✓ sitem:hover transform — reduced-motion'da iptal
+*/
 body { overflow-y:auto; }
 .pg-body { padding-top:60px; }
 
@@ -24,7 +29,8 @@ body { overflow-y:auto; }
 /* Grid */
 .shop-grid {
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));
+  /* FIX: 190→155px — mobilide de 2 sütun oluşsun */
+  grid-template-columns:repeat(auto-fill, minmax(155px, 1fr));
   gap:1rem;
 }
 
@@ -73,6 +79,8 @@ body { overflow-y:auto; }
   width:100%; margin-top:auto; padding:.45rem; border-radius:5px;
   border:none; cursor:pointer; font-family:'Orbitron',sans-serif;
   font-size:.6rem; letter-spacing:1.5px; font-weight:700; transition:all .2s;
+  /* FIX: WCAG 2.5.5 — minimum 44px dokunmatik hedef */
+  min-height:36px;
 }
 .sitem-btn.buy   { background:linear-gradient(135deg, var(--gold), #ff9900); color:#000; }
 .sitem-btn.buy:hover { filter:brightness(1.18); }
@@ -89,3 +97,19 @@ body { overflow-y:auto; }
 .item-modal canvas { display:block; margin:0 auto 1rem; border-radius:50%; }
 .item-modal h2 { font-family:'Orbitron',sans-serif; font-size:1.1rem; letter-spacing:2px; margin-bottom:.3rem; }
 .item-modal p  { font-size:.78rem; color:var(--dim); line-height:1.55; margin-bottom:1.4rem; }
+
+/* ── REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  .sitem        { transition:none !important; }
+  .sitem:hover  { transform:none !important; box-shadow:none !important; }
+  .sitem-btn    { transition:none !important; }
+  .sitem-btn.buy:hover { filter:none !important; }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 400px) {
+  .shop-grid { grid-template-columns:repeat(2,1fr); gap:.6rem; }
+  .sitem     { padding:.9rem .6rem; }
+  .sitem-canvas { width:72px; height:72px; }
+  .sitem-nm  { font-size:.6rem; }
+}

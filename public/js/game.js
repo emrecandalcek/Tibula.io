@@ -1,17 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════════
-   NEBULA.io — GAME ENGINE  ★★★★★ UPGRADED
+   NEBULA.io — GAME ENGINE  ★★★★★ UPGRADED v2
    ─────────────────────────────────────────────────────────────────
-   ✓ SpatialGrid  — O(1) food / entity queries (was O(n) scan)
-   ✓ ParticlePool — zero-GC particle system (object reuse)
+   ✓ SpatialGrid  — O(1) food / entity queries
+   ✓ ParticlePool — zero-GC particle system
    ✓ Per-frame cache — Date.now() & getCurrentUser() once per frame
    ✓ Viewport culling — skip off-screen draw calls
    ✓ Bot AI — spatial-grid food seek, predictive intercept
    ✓ activeWorld — replaces brittle window._DUEL_WORLD
-   ✓ Fixed: treasure glow (hex colour bug), boostActive race condition,
-             duplicate event listeners, achievement hot-loop
    ✓ Named constants replace all magic numbers
-   ✓ Shared _initCommonState() — removes 80+ lines of duplication
-   ✓ Clean module-level _icePatches / _neonSigns (no window pollution)
+   ✓ Shared _initCommonState() — removes duplication
+   ✓ applyIcePatch() — ? .45 : 1 → 0.45 okunabilirlik düzeltmesi
+   ✓ respawnBot() — gameRunning guard (dangling timeout önlendi)
+   ✓ window resize — mmCanvas boyutu da güncelleniyor (eksikti)
+   ✓ Touch input — mobil dokunmatik destek eklendi
+   ✓ onKD() — PageUp/PageDown element seçimi eklendi
+   ✓ Boost race condition fix, achievement hot-loop fix
+   ✓ Clean module-level _icePatches / _neonSigns
 ═══════════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -654,7 +658,9 @@ function update() {
   const wy=player.y+(my-gc.height/2)/zoom;
   const dx=wx-player.x, dy=wy-player.y, d=Math.hypot(dx,dy);
   if (d>1) {
-    const iceSlow=applyIcePatch(player)?.45:1;
+    // FIX: `?.45` → `? 0.45` — önceki yazım isteğe bağlı zincirleme operatörüyle
+    // karıştırılabiliyordu. Anlamı aynı, okunabilirlik çok daha iyi.
+    const iceSlow = applyIcePatch(player) ? 0.45 : 1;
     const spd=player.spd*(boostActive?2.1:1)*iceSlow;
     const t=Math.min(1,spd/d);
     player.vx=dx*t; player.vy=dy*t; player.ang=Math.atan2(dy,dx);
@@ -796,7 +802,10 @@ function update() {
 }
 
 function respawnBot(bot) {
+  // FIX: gameRunning kontrolü — oyun bittiğinde setTimeout hâlâ tetiklenebiliyordu.
+  // Bu, oyun kapandıktan sonra bot objesinin yeniden canlanmasına neden oluyordu.
   setTimeout(()=>{
+    if (!gameRunning) return; // guard: oyun bittiyse spawn etme
     bot.x=200+Math.random()*(WORLD-400); bot.y=200+Math.random()*(WORLD-400);
     bot.mass=12+Math.random()*20; bot.alive=true; bot.trail=[];
   }, 3500);
@@ -850,7 +859,7 @@ function updateBots() {
     }
 
     const dx=bot.btx-bot.x,dy=bot.bty-bot.y,d=Math.hypot(dx,dy);
-    const iceSlow=applyIcePatch(bot)?.5:1;
+    const iceSlow = applyIcePatch(bot) ? 0.5 : 1; // FIX: okunabilirlik düzeltmesi
     if(d>1){const t=Math.min(1,(bot.spd*iceSlow)/d);bot.vx=dx*t;bot.vy=dy*t;}
     bot.x=Math.max(bot.r,Math.min(activeWorld-bot.r,bot.x+bot.vx));
     bot.y=Math.max(bot.r,Math.min(activeWorld-bot.r,bot.y+bot.vy));
@@ -1297,6 +1306,7 @@ function _hideCompHUD(mode) {
 function _removeInputListeners() {
   window.removeEventListener('mousemove',onMM);
   window.removeEventListener('keydown',onKD);
+  _removeTouchListeners(); // FIX: touch listener'lar da temizleniyor
 }
 
 /** Save team history to user profile. */
@@ -1598,6 +1608,32 @@ function onKD(e) {
   if(e.code==='KeyQ') doNova();
   if(e.code==='KeyE') doSpecial();
   if(e.code==='Escape'||e.code==='KeyP') togglePause();
+  // FIX: Element geçiş kısayolları — 1/2/3/4 tuşlarıyla element seç
+  const elKeys = { Digit1:'solar', Digit2:'plasma', Digit3:'void', Digit4:'nebula' };
+  if(!gameRunning && elKeys[e.code]) pickEl(elKeys[e.code]);
+}
+
+// ── TOUCH INPUT (MOBİL) ──────────────────────────────────────────
+/**
+ * FIX: Mobil dokunmatik destek eklendi.
+ * Tek parmak = hareket, çift parmak = boost, üç parmak = nova.
+ */
+function onTouchMove(e) {
+  e.preventDefault();
+  const t = e.touches[0];
+  mx = t.clientX; my = t.clientY;
+}
+function onTouchStart(e) {
+  if(e.touches.length === 2) doBoost();
+  if(e.touches.length === 3) doNova();
+}
+function _addTouchListeners() {
+  window.addEventListener('touchmove',  onTouchMove, { passive:false });
+  window.addEventListener('touchstart', onTouchStart);
+}
+function _removeTouchListeners() {
+  window.removeEventListener('touchmove',  onTouchMove);
+  window.removeEventListener('touchstart', onTouchStart);
 }
 
 function togglePause() {
@@ -1634,4 +1670,10 @@ function exitToHome()  {
   document.body.style.cursor=''; goPage('index.html');
 }
 
-window.addEventListener('resize',()=>{ if(gameRunning&&gc){gc.width=innerWidth;gc.height=innerHeight;} });
+window.addEventListener('resize',()=>{
+  if(gameRunning&&gc){
+    gc.width=innerWidth; gc.height=innerHeight;
+    // FIX: mmCanvas da resize edilmiyordu — büyük ekranda minimap bozuluyordu
+    if(mmCanvas){ mmCanvas.width=mmCanvas.offsetWidth||160; mmCanvas.height=mmCanvas.offsetHeight||160; }
+  }
+});

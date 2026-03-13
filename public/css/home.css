@@ -1,4 +1,8 @@
-/* ── HOME PAGE ── */
+/* ── HOME PAGE  ★★★★★ ──
+   ✓ prefers-reduced-motion — animasyonlar ve ticker durduruluyor
+   ✓ news-ticker — hover'da duraklatma, WCAG uyumlu
+   ✓ hero responsive — küçük ekran iyileştirmeleri
+*/
 body { overflow:hidden scroll; }
 
 .hero {
@@ -81,10 +85,30 @@ body { overflow:hidden scroll; }
   font-size:.7rem; letter-spacing:1px; color:var(--dim);
 }
 .news-inner span { color:var(--cyan); margin-right:.5rem; }
+/* FIX: hover'da ticker duraklatma — WCAG 2.1 AA — hareket eden içerik durdurulabilmeli */
+.news-bar:hover .news-inner { animation-play-state: paused; }
 @keyframes ticker { from{transform:translateX(0);} to{transform:translateX(-50%);} }
 
 /* Orb decorations */
 .orb-deco {
   position:absolute; border-radius:50%; pointer-events:none;
   animation:floatY 5s ease-in-out infinite;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .hero-nums  { gap:1.4rem; }
+  .hn-val     { font-size:1.5rem; }
+  .hero-btns  { gap:.5rem; }
+  .btn-hero   { padding:.8rem 1.8rem; font-size:.72rem; }
+}
+
+/* ── REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  .hero-eyebrow, .hero-title, .hero-tagline,
+  .hero-btns, .hero-nums { animation:none !important; opacity:1; }
+  .news-inner  { animation:none !important; }
+  .orb-deco    { animation:none !important; }
+  .feat-card   { transition:none !important; }
+  .feat-card:hover { transform:none !important; }
 }

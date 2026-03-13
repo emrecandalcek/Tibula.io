@@ -8,6 +8,9 @@
 <title>NEBULA.io — Mağaza</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/shop.css">
+<meta property="og:title" content="NEBULA.io — Mağaza">
+<meta property="og:description" content="Skin, iz ve efekt satın al. Kozmik arenada öne çık!">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -213,6 +216,10 @@ function startModalEffectPreview(item, canvas, ctx, W, H) {
   }
   modalRaf=requestAnimationFrame(frame);
 }
+// FIX: Sayfa değiştirildiğinde modalRaf sızıntısını önle
+window.addEventListener('beforeunload', () => {
+  if (modalRaf) { cancelAnimationFrame(modalRaf); modalRaf = null; }
+});
 </script>
 </body>
 </html>

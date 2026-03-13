@@ -8,6 +8,9 @@
 <title>NEBULA.io — Rekabetçi</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/competitive.css">
+<meta property="og:title" content="NEBULA.io — Rekabetçi Arena">
+<meta property="og:description" content="1v1 Ranked, turnuva ve klan savaşları. Rütbe kazan, efsane ol!">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -393,6 +396,8 @@
 <script src="js/core.js"></script>
 <script src="js/competitive.js"></script>
 <script>
+/* XSS guard — core.js'den escHtml gelir; burada da güvenli sarıcı */
+function _e(s) { return typeof escHtml==='function' ? escHtml(s) : String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // ────────────────────────────────────────────────────────────
 //  INIT
 // ────────────────────────────────────────────────────────────
@@ -623,7 +628,7 @@ function renderTeamTab() {
   currentUser = getCurrentUser();
   // Blue team preview
   document.getElementById('blue-team-preview').innerHTML =
-    `<strong style="color:var(--cyan)">${currentUser.name}</strong> (Sen)<br>StarHelper<br>CosmicAid<br>PlasmaAlly<br>VoidFriend`;
+    `<strong style="color:var(--cyan)">${_e(currentUser.name)}</strong> (Sen)<br>StarHelper<br>CosmicAid<br>PlasmaAlly<br>VoidFriend`;
 
   const tw = currentUser.teamWins || 0;
   const tl = currentUser.teamLosses || 0;
@@ -779,7 +784,7 @@ function renderBracket(bracket, userId) {
   if (playerMatch) {
     const opp = playerMatch.p1?.isPlayer ? playerMatch.p2 : playerMatch.p1;
     actDiv.style.display = 'block';
-    document.getElementById('bracket-match-info').textContent = `${playerMatch.p1?.name} vs ${playerMatch.p2?.name} — Kazanmak için maçı oyna!`;
+    document.getElementById('bracket-match-info').textContent = `${playerMatch.p1?.name??'?'} vs ${playerMatch.p2?.name??'?'} — Kazanmak için maçı oyna!`;
     actDiv.dataset.opp = JSON.stringify(opp);
   } else {
     actDiv.style.display = 'none';

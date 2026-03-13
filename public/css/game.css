@@ -1,4 +1,9 @@
-/* ── GAME PAGE ── */
+/* ── GAME PAGE  ★★★★★ ──
+   ✓ el-grid — mobilde 2 sütuna düşüyor
+   ✓ touch-action — canvas mobil kaydırmayı engeller
+   ✓ prefers-reduced-motion — animasyonlar kapatılıyor
+   ✓ hud responsive — küçük ekranlarda daha kompakt
+*/
 html, body { overflow:hidden; }
 
 /* Overlay open: allow scroll inside overlay itself */
@@ -11,6 +16,8 @@ html, body { overflow:hidden; }
   pointer-events:none;
   cursor:none;
   z-index:1;
+  /* FIX: mobilde tek parmak kaydırma oyun kontrolüne girmeli */
+  touch-action: none;
 }
 
 /* HUD panels */
@@ -134,6 +141,11 @@ html, body { overflow:hidden; }
 /* Start overlay el-grid */
 .el-grid {
   display:grid; grid-template-columns:repeat(4,1fr); gap:.6rem; margin-bottom:1.5rem;
+}
+/* FIX: mobilide 4 sütun sığmıyor */
+@media (max-width: 480px) {
+  .el-grid { grid-template-columns:repeat(2,1fr); }
+  .eo-ab   { display:none; } /* küçük ekranda yetenek açıklaması gizle */
 }
 .el-opt {
   padding:.8rem .3rem; border-radius:var(--r); border:2px solid transparent;

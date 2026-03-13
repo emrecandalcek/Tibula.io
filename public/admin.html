@@ -68,6 +68,8 @@ body{overflow-y:auto}.pg-body{padding-top:0}
 .abtn-y{background:rgba(255,191,0,.1);border:1px solid rgba(255,191,0,.3);color:var(--gold)}
 .abtn-p{background:rgba(160,64,255,.1);border:1px solid rgba(160,64,255,.3);color:#a040ff}
 </style>
+<meta property="og:title" content="NEBULA.io — Admin Paneli">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -154,6 +156,8 @@ body{overflow-y:auto}.pg-body{padding-top:0}
     </select>
     <button class="btn btn-red" onclick="clearLogs()" style="font-size:.62rem;padding:.4rem .85rem">TEMİZLE</button>
     <button class="btn btn-outline" onclick="renderLogs()" style="font-size:.62rem;padding:.4rem .85rem">🔄 YENİLE</button>
+    <!-- FIX: exportLogs() admin_logic.js v2'de eklendi -->
+    <button class="btn btn-outline" onclick="exportLogs()" style="font-size:.62rem;padding:.4rem .85rem">📥 CSV İNDİR</button>
   </div>
   <div class="atbl" id="log-body" style="max-height:500px;overflow-y:auto"></div>
 </div>
@@ -163,7 +167,7 @@ body{overflow-y:auto}.pg-body{padding-top:0}
   <div class="panel-ttl">👥 Kullanıcı Yönetimi</div>
   <div class="panel-sub">Tüm oyuncuları görüntüle, düzenle, yönet</div>
   <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
-    <input class="adm-inp" style="max-width:260px" id="user-search" placeholder="İsim, e-posta, ID..." oninput="renderUsers()">
+    <input class="adm-inp" style="max-width:260px" id="user-search" placeholder="İsim, e-posta, ID..." oninput="debouncedRenderUsers()">
     <select id="user-role-filter" onchange="renderUsers()" style="background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:var(--r);padding:.48rem .8rem;color:var(--txt);font-size:.78rem;outline:none">
       <option value="">Tüm Roller</option><option value="admin">Admin</option><option value="user">Kullanıcı</option>
     </select>
@@ -210,10 +214,24 @@ body{overflow-y:auto}.pg-body{padding-top:0}
   </div>
 </div>
 
-<!-- INVENTORY -->
+<!-- INVENTORY — admin_logic.js v2 renderInventory() ile uyumlu -->
 <div class="panel" id="panel-inventory">
   <div class="panel-ttl">🎒 Envanter Yönetimi</div>
-  <div class="panel-sub">Oyunculara item ver ya da al</div>
+  <div class="panel-sub">Tüm oyuncuların envanter istatistikleri ve toplu item yönetimi</div>
+
+  <!-- FIX: Envanter istatistik kartları (renderInventory tarafından doldurulur) -->
+  <div class="stat-grid" id="inv-panel-stats"></div>
+  <div class="sdiv"></div>
+
+  <!-- Arama + toplu liste -->
+  <div style="display:flex;gap:.6rem;margin-bottom:1rem">
+    <input class="adm-inp" id="inv-search" placeholder="Oyuncu ara..." oninput="renderInventory()" style="max-width:280px">
+  </div>
+  <!-- FIX: renderInventory() tarafından doldurulacak -->
+  <div class="atbl" id="inv-panel-body" style="margin-bottom:1.2rem"></div>
+
+  <div class="sdiv"></div>
+  <div style="font-family:'Orbitron',sans-serif;font-size:.58rem;letter-spacing:2px;color:var(--dim);margin-bottom:.85rem">TEKİL İŞLEM</div>
   <div class="bcast-box" style="margin-bottom:1.2rem">
     <div class="form-row"><label>OYUNCU</label><input class="adm-inp" id="inv-uid" placeholder="ID veya isim..."></div>
     <div class="form-row"><label>KATEGORİ</label>
@@ -229,7 +247,7 @@ body{overflow-y:auto}.pg-body{padding-top:0}
   </div>
   <div class="sdiv"></div>
   <div style="display:flex;gap:.6rem;margin-bottom:.7rem">
-    <input class="adm-inp" id="inv-view-uid" placeholder="Envanter görüntüle (ID veya isim)...">
+    <input class="adm-inp" id="inv-view-uid" placeholder="Tek envanter görüntüle (ID veya isim)...">
     <button class="btn btn-outline" onclick="viewInventory()">GÖRÜNTÜLE</button>
   </div>
   <div id="inv-display" style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:1rem;display:none"></div>

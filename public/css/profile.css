@@ -1,3 +1,10 @@
+/* ── PROFILE PAGE  ★★★★★ ──
+   ✓ history-row — mobilde sütunlar sadeleşiyor
+   ✓ profile-top — min-width:0 overflow fix
+   ✓ xp-bar-wrap — min-width:0 flex shrink fix
+   ✓ prefers-reduced-motion eklendi
+*/
+
 /* ── PROFILE PAGE ── */
 body { overflow-y:auto; }
 .pg-body { padding-top:0; }  /* Reset — hero handles its own top spacing */
@@ -30,7 +37,7 @@ body { overflow-y:auto; }
   box-shadow:0 0 6px var(--grn); }
 
 /* Info */
-.p-info { }
+.p-info { min-width:0; } /* FIX: flex child overflow */
 .p-name-row { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; margin-bottom:.5rem; }
 .p-name { font-family:'Orbitron',sans-serif; font-size:1.6rem; font-weight:900; }
 .p-role-badge { }
@@ -42,7 +49,7 @@ body { overflow-y:auto; }
   font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900;
   color:var(--gold); text-shadow:0 0 10px rgba(255,191,0,.4); min-width:48px;
 }
-.xp-bar-wrap { flex:1; }
+.xp-bar-wrap { flex:1; min-width:0; } /* FIX: flex shrink */
 .xp-bar {
   height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden;
 }
@@ -134,3 +141,32 @@ body { overflow-y:auto; }
 }
 .streak-day.done { background:rgba(255,191,0,.15); border-color:rgba(255,191,0,.4); }
 .streak-day.today { background:rgba(255,191,0,.25); border-color:var(--gold); box-shadow:0 0 8px rgba(255,191,0,.3); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 640px) {
+  .profile-top { grid-template-columns:1fr; }
+
+  /* History: sadece element, skor, öldürme, süre */
+  .history-row { grid-template-columns:auto 1fr 90px 70px; }
+  .history-row .hr-ago, .history-row .hr-time { display:none; }
+
+  .el-breakdown { grid-template-columns:repeat(2,1fr); }
+  .ach-grid     { grid-template-columns:1fr; }
+  .stats-grid   { grid-template-columns:repeat(2,1fr); }
+  .p-quick-stats { min-width:unset; width:100%; }
+  .qs-row { padding:.5rem .75rem; }
+}
+
+@media (max-width: 400px) {
+  .history-row { grid-template-columns:auto 1fr 90px; }
+  .history-row .hr-kill { display:none; }
+  .stats-grid   { grid-template-columns:1fr 1fr; }
+}
+
+/* ── REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  .xp-fill { transition:none !important; }
+  .ach-card { transition:none !important; }
+  .p-avatar { box-shadow:none !important; }
+  .streak-day { transition:none; }
+}

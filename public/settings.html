@@ -8,6 +8,8 @@
 <title>NEBULA.io — Ayarlar</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/pages.css">
+<meta property="og:title" content="NEBULA.io — Ayarlar">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -150,9 +152,18 @@ function saveVolume(v) {
   const s = DB.settings; s.volume = parseInt(v); DB.settings = s;
 }
 function confirmReset() {
-  if (confirm('TÜM veriler silinecek. Emin misin?')) {
-    localStorage.clear(); location.reload();
-  }
+  // FIX: localStorage.clear() yerine sadece oyun verileri siliniyor.
+  // Önceden tarayıcının diğer sitelerden gelen verileri de temizleniyordu.
+  const phrase = prompt('Tüm oyun verilerini sıfırlamak için "SIFIRLA" yaz:');
+  if (phrase !== 'SIFIRLA') { showToast && showToast('İptal edildi.','#888'); return; }
+  const GAME_KEYS = [
+    'neb_users','neb_session','neb_settings','neb_guilds',
+    'neb_tournaments','neb_admin_logs','neb_broadcasts',
+    'neb_server_settings','neb_comp_result','neb_game_mode','neb_lf'
+  ];
+  GAME_KEYS.forEach(k => localStorage.removeItem(k));
+  showToast && showToast('Veriler sıfırlandı!','#ff3355',2000);
+  setTimeout(() => location.reload(), 1500);
 }
 </script>
 </body>

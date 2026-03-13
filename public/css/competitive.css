@@ -1,5 +1,11 @@
 /* ═══════════════════════════════════════
-   NEBULA.io — COMPETITIVE STYLES
+   NEBULA.io — COMPETITIVE STYLES  ★★★★★
+   ─────────────────────────────────────
+   ✓ .bracket — overflow-x:auto wrapper (min-width korunuyor)
+   ✓ .rank-stats — mobilde gizleniyor, taşma önleniyor
+   ✓ .guild-lb-row — mobil responsive
+   ✓ .mode-grid — tek sütun 400px altında
+   ✓ prefers-reduced-motion eklendi
 ═══════════════════════════════════════ */
 
 body { overflow-y:auto; }
@@ -44,7 +50,7 @@ body { overflow-y:auto; }
   box-shadow:0 0 6px var(--rk-color,var(--cyan));
 }
 .rank-bar-lbl { font-size:.62rem; color:var(--dim); margin-top:.28rem; letter-spacing:1px; }
-.rank-stats { display:flex; gap:.8rem; position:relative; z-index:1; flex-shrink:0; }
+.rank-stats { display:flex; gap:.8rem; position:relative; z-index:1; flex-shrink:0; min-width:0; }
 .rs-box { text-align:center; }
 .rs-v { font-family:'Orbitron',sans-serif; font-size:1.3rem; font-weight:900; display:block; }
 .rs-l { font-size:.6rem; letter-spacing:2px; color:var(--dim); }
@@ -159,7 +165,12 @@ body { overflow-y:auto; }
 }
 
 /* ─── BRACKET ─── */
-.bracket-wrap { overflow-x:auto; padding:1rem 0; }
+.bracket-wrap {
+  overflow-x:auto; padding:1rem 0;
+  /* FIX: -webkit-overflow-scrolling touch kaydırmayı akıcı yapıyor */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
 .bracket {
   display:flex; gap:0; align-items:flex-start; min-width:600px;
 }
@@ -347,3 +358,55 @@ body { overflow-y:auto; }
 }
 .th-timer.low { color:var(--red); animation:pulse .8s infinite; }
 .th-divider { font-family:'Orbitron',sans-serif; font-size:.7rem; color:var(--dim); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 640px) {
+  /* Rank card */
+  .rank-card { flex-wrap:wrap; gap:1rem; padding:1.2rem; }
+  .rank-stats { display:none; } /* mobilde kart istatistikleri gizle */
+  .rank-icon  { font-size:2.8rem; }
+  .rank-name  { font-size:1.2rem; }
+
+  /* Comp tabs */
+  .comp-tab { font-size:.5rem; padding:.45rem .3rem; min-width:72px; }
+
+  /* Guild lb */
+  .guild-lb-row { grid-template-columns:30px 1fr 70px; }
+  .guild-lb-row > *:nth-child(4),
+  .guild-lb-row > *:nth-child(5) { display:none; }
+
+  /* Mode grid */
+  .mode-grid { grid-template-columns:1fr; }
+
+  /* Season track */
+  .season-track { grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); }
+
+  /* Duel / team hud */
+  #duel-hud { padding:0 .7rem; }
+  .dh-kills { font-size:1.5rem; }
+  .dh-timer { font-size:1.1rem; }
+  #team-hud { padding:0 .7rem; }
+  .th-kills { font-size:1.8rem; }
+  .th-timer { font-size:1.1rem; }
+}
+
+@media (max-width: 400px) {
+  .comp-tab span { display:none; } /* sadece emoji göster */
+}
+
+/* ── REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  .rank-icon         { animation:none !important; }
+  .rank-fill         { transition:none !important; }
+  .mm-spinner        { animation:none !important; border:3px solid var(--cyan); }
+  .mm-dots span      { animation:none !important; }
+  .countdown-big     { animation:none !important; }
+  .result-win,
+  .result-loss       { animation:none !important; }
+  .tourn-card:hover  { transform:none !important; }
+  .mode-card:hover   { transform:none !important; }
+  .reward-card       { transition:none !important; }
+  .dh-timer.low      { animation:none !important; }
+  .th-timer.low      { animation:none !important; }
+  .opp-card          { animation:none !important; }
+}

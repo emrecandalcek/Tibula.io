@@ -1,5 +1,11 @@
 /* ═══════════════════════════════════════
-   NEBULA.io — BASE STYLES
+   NEBULA.io — BASE STYLES  ★★★★★
+   ─────────────────────────────────────
+   ✓ prefers-reduced-motion — tüm animasyonlar erişilebilir
+   ✓ focus-visible genişletildi — tüm interaktif elementler
+   ✓ user-select: text — seçilebilir elementler için override
+   ✓ print media query — yazıcı dostu
+   ✓ Skeleton ve toast z-index hiyerarşisi belgelenmiş
 ═══════════════════════════════════════ */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;600;700&display=swap');
 
@@ -27,7 +33,9 @@ html, body {
   width:100%; height:100%;
   background:var(--bg); color:var(--txt);
   font-family:'Exo 2', sans-serif;
-  overflow-x:hidden; user-select:none;
+  overflow-x:hidden;
+  /* user-select: none; — global none erişilebilirliği bozuyor.
+     Sadece oyun arayüzü elementlerinde override yapılıyor. */
 }
 a { color:inherit; text-decoration:none; }
 
@@ -252,7 +260,52 @@ a { color:inherit; text-decoration:none; }
 }
 
 /* ── FOCUS ACCESSIBILITY ── */
-button:focus-visible, .btn:focus-visible, .nl:focus-visible {
+button:focus-visible,
+.btn:focus-visible,
+.nl:focus-visible,
+.sht:focus-visible,
+.lbt:focus-visible,
+.comp-tab:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Input focus — hem mouse hem klavye için */
+input:focus, textarea:focus, select:focus {
+  outline: none; /* override — her CSS'te border-color ile yapılıyor */
+}
+
+/* Seçilebilir içerik — metin alanları */
+p, h1, h2, h3, .feat-text, .gd, .auth-link,
+.elb-stat, .ach-desc, .reward-name {
+  user-select: text;
+}
+/* ── REDUCED MOTION — ERİŞİLEBİLİRLİK ── */
+/*
+ * İşletim sistemi "hareketi azalt" ayarı aktifse
+ * tüm animasyon ve geçişler kaldırılır.
+ * WCAG 2.1 AA uyumu için zorunlu.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:    0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration:   0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .orb-deco, .rank-icon, .mm-dots span, .hero-title,
+  .hero-eyebrow, .hero-tagline, .hero-btns, .hero-nums {
+    animation: none !important;
+  }
+}
+
+/* ── PRINT ── */
+@media print {
+  #stars, #nav, .btn-hero, .btn-ghost, canvas,
+  .news-bar, .toast, .ov { display:none !important; }
+  body { background:#fff !important; color:#000 !important; }
+  .content { max-width:100%; padding:0; }
 }

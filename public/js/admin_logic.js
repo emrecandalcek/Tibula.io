@@ -1,16 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════════
-   NEBULA.io — ADMIN PANEL LOGIC  ★★★★★ UPGRADED
+   NEBULA.io — ADMIN PANEL LOGIC  ★★★★★ UPGRADED v2
    ─────────────────────────────────────────────────────────────────
    ✓ escHtml() used on ALL user-generated content in innerHTML
-     (names, emails, IDs, messages) — closes XSS attack surface
    ✓ DB.users cached at top of every render function (one parse/call)
    ✓ renderDashboard() reads users once, passes to helpers
-   ✓ deleteBanned() now requires confirm dialog (was silently deleting)
+   ✓ deleteBanned() requires confirm dialog
    ✓ quickEditUser() validates coin input, rejects NaN
    ✓ factoryReset() requires typed confirmation phrase
-   ✓ grantAllCoins/XP use cached users — consistent with other ops
+   ✓ grantAllCoins/XP — confirm dialog added (was silent bulk op)
    ✓ addLog() uses adminUser.name safely (null guard)
    ✓ switchPanel() route map uses typed keys (no silent misses)
+   ✓ renderInventory() — tam envanter görüntüleme paneli eklendi
+   ✓ exportLogs() — CSV dışa aktarım fonksiyonu eklendi
+   ✓ renderUsers() — debounced search (was re-rendering every keystroke)
+   ✓ renderSettings() — foodSpawnRate alanı eklendi (eksikti)
+   ✓ doEcoAction() — negatif miktar artık reddediliyor
+   ✓ giveItemAll() — kategori adı confirm dialogda gösteriliyor
 ═══════════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -36,6 +41,27 @@ function addLog(type, msg) {
 }
 function clearLogs() { localStorage.setItem('neb_admin_logs', '[]'); renderLogs(); showToast('Loglar temizlendi.', '#00e0ff'); }
 
+/**
+ * FIX: Yeni fonksiyon — logları CSV olarak dışa aktar.
+ * Admin log geçmişi artık indirilebilir dosya olarak kaydedilebilir.
+ */
+function exportLogs() {
+  const logs = getLogs();
+  if (!logs.length) { showToast('Dışa aktarılacak log yok.', '#ff3355'); return; }
+  const header = 'Zaman,Tip,Admin,Mesaj';
+  const rows   = logs.map(l =>
+    `"${new Date(l.time).toLocaleString('tr-TR')}","${l.type}","${l.admin||''}","${(l.msg||'').replace(/"/g,'""')}"`
+  );
+  const csv  = [header, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `nebula_logs_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  addLog('info', `Loglar dışa aktarıldı — ${adminUser.name}`);
+  showToast('Loglar indirildi!', '#00ff88');
+}
+
 // ─── INIT ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   adminUser = getCurrentUser();
@@ -56,7 +82,7 @@ const _PANEL_RENDERERS = {
   logs:        renderLogs,
   users:       renderUsers,
   economy:     renderEconomy,
-  inventory:   () => {},
+  inventory:   renderInventory,
   duels:       renderDuels,
   teams:       renderTeams,
   tournaments: renderTournaments,
@@ -154,6 +180,14 @@ function renderLogs() {
 // ═══════════════════════════════════════
 // USERS
 // ═══════════════════════════════════════
+// FIX: Debounce — önceden arama inputu her keyup'ta direkt renderUsers() çağırıyordu.
+// Büyük kullanıcı listelerinde 200ms gecikme UI takılmasını önler.
+let _userSearchTimer = null;
+function debouncedRenderUsers() {
+  clearTimeout(_userSearchTimer);
+  _userSearchTimer = setTimeout(renderUsers, 200);
+}
+
 function renderUsers() {
   // FIX: cache DB.users once for this function
   const allUsers = DB.users;
@@ -258,9 +292,13 @@ function doEcoAction() {
   const amount  = parseInt(document.getElementById('eco-amount').value) || 0;
   const op      = document.getElementById('eco-op').value;
   const specId  = document.getElementById('eco-specific-id').value.trim();
+
+  // FIX: negatif miktar reddediliyor
+  if (amount < 0) { showToast('Miktar negatif olamaz!', '#ff3355'); return; }
+
   const users   = DB.users;
   const targets = target === 'specific'
-    ? users.filter(u => u.id === specId || u.name === specId)
+    ? users.filter(u => u.id === specId || u.name.toLowerCase() === specId.toLowerCase())
     : target === 'active' ? users.filter(u => !u.banned) : users;
 
   let affected = 0;
@@ -277,6 +315,9 @@ function doEcoAction() {
 }
 
 function grantAllCoins(amount) {
+  // FIX: confirm dialog eklendi — önceden hiç onay istemeden bulk işlem yapıyordu
+  const activeCount = DB.users.filter(u => !u.banned).length;
+  if (!confirm(`${activeCount} aktif oyuncuya +${amount} ◈ coin verilsin mi?`)) return;
   const users = DB.users;
   for (const u of users) if (!u.banned) u.coins = (u.coins||0) + amount;
   DB.users = users; updateNavUI();
@@ -285,6 +326,9 @@ function grantAllCoins(amount) {
 }
 
 function grantAllXp(amount) {
+  // FIX: confirm dialog eklendi
+  const count = DB.users.length;
+  if (!confirm(`${count} oyuncuya +${amount} XP verilsin mi?`)) return;
   const users = DB.users;
   for (const u of users) { u.xp = (u.xp||0) + amount; u.level = levelFromXp(u.xp); }
   DB.users = users;
@@ -306,8 +350,63 @@ function doXpAction(op) {
 }
 
 // ═══════════════════════════════════════
-// INVENTORY
+// INVENTORY (PANEL)
 // ═══════════════════════════════════════
+/**
+ * FIX: Önceden inventory paneli () => {} boş fonksiyondu.
+ * Şimdi envanter istatistikleri + arama + tam liste gösteriyor.
+ */
+function renderInventory() {
+  const users = DB.users;
+  const allInv = users.reduce((a, u) => {
+    const inv = u.inventory || {};
+    return a + (inv.skins?.length||0) + (inv.trails?.length||0) + (inv.effects?.length||0);
+  }, 0);
+  const avgInv = users.length ? Math.round(allInv / users.length) : 0;
+  const richestInv = [...users].sort((a,b) => {
+    const ai=(a.inventory?.skins?.length||0)+(a.inventory?.trails?.length||0)+(a.inventory?.effects?.length||0);
+    const bi=(b.inventory?.skins?.length||0)+(b.inventory?.trails?.length||0)+(b.inventory?.effects?.length||0);
+    return bi-ai;
+  })[0];
+
+  const statsEl = document.getElementById('inv-panel-stats');
+  if (statsEl) {
+    statsEl.innerHTML = [
+      { v:allInv,                                   l:'Toplam Item',      c:'var(--cyan)' },
+      { v:avgInv,                                   l:'Oyuncu Başı Ort.', c:'var(--grn)'  },
+      { v:escHtml(richestInv?.name||'—'),           l:'En Zengin Envanter',c:'#ff8800'    },
+      { v:users.filter(u=>(u.inventory?.skins?.length||0)>1).length, l:'Özel Skin Sahibi', c:'var(--gold)' },
+    ].map(s => `<div class="stat-card" style="--sc:${s.c}"><span class="sc-val">${s.v}</span><div class="sc-lbl">${s.l}</div></div>`).join('');
+  }
+
+  const q = (document.getElementById('inv-search')?.value || '').toLowerCase();
+  const filtered = users.filter(u => !q || u.name.toLowerCase().includes(q) || u.id.includes(q));
+
+  const bodyEl = document.getElementById('inv-panel-body');
+  if (!bodyEl) return;
+  bodyEl.innerHTML =
+    `<div class="atbl-head" style="grid-template-columns:1fr 80px 80px 80px 100px">
+      <span>OYUNCU</span><span>SKİN</span><span>İZ</span><span>EFEKT</span><span>EKİPMAN</span>
+    </div>` +
+    filtered.slice(0, 30).map(u => {
+      const inv = u.inventory || {};
+      const eq  = u.equipped  || {};
+      return `<div class="atbl-row" style="grid-template-columns:1fr 80px 80px 80px 100px">
+        <div>
+          <div style="font-weight:600;font-size:.8rem">${escHtml(u.name)}</div>
+          <div style="font-size:.6rem;color:var(--dim)">${escHtml(u.id)}</div>
+        </div>
+        <span style="font-size:.7rem;color:var(--cyan)">${(inv.skins?.length||0)} adet</span>
+        <span style="font-size:.7rem;color:var(--purp)">${(inv.trails?.length||0)} adet</span>
+        <span style="font-size:.7rem;color:var(--gold)">${(inv.effects?.length||0)} adet</span>
+        <div style="font-size:.62rem;color:var(--dim)">
+          ${escHtml(eq.skin||'—')} / ${escHtml(eq.trail||'—')}
+        </div>
+      </div>`;
+    }).join('');
+}
+
+
 function doInvAction(act) {
   const uid  = document.getElementById('inv-uid').value.trim();
   const cat  = document.getElementById('inv-cat').value;
@@ -722,7 +821,9 @@ function renderShopAdmin(cat) {
 }
 
 function giveItemAll(itemId, cat) {
-  if (!confirm(`${itemId} herkese verilsin mi?`)) return;
+  // FIX: confirm dialogda kategori adı artık gösteriliyor
+  const catNames = { skins:'Skin', trails:'İz', effects:'Efekt' };
+  if (!confirm(`"${itemId}" (${catNames[cat]||cat}) tüm oyunculara verilsin mi?`)) return;
   const users = DB.users;
   for (const u of users) {
     if (!u.inventory) u.inventory = { skins:[], trails:[], effects:[] };
@@ -730,7 +831,7 @@ function giveItemAll(itemId, cat) {
     if (!u.inventory[cat].includes(itemId)) u.inventory[cat].push(itemId);
   }
   DB.users = users;
-  addLog('ok', `${itemId} herkese verildi — ${adminUser.name}`);
+  addLog('ok', `${itemId} (${cat}) herkese verildi — ${adminUser.name}`);
   showToast(`${escHtml(itemId)} herkese!`, '#00ff88');
 }
 
@@ -768,6 +869,7 @@ function doBroadcast() {
 function renderSettings() {
   const fields = [
     { k:'maxBots',           l:'Maksimum Bot Sayısı', type:'number', min:1,  max:30,  step:1   },
+    { k:'foodSpawnRate',     l:'Yem Spawn Hızı',      type:'number', min:.1, max:5,   step:.1  }, // FIX: eksik alan eklendi
     { k:'xpMultiplier',      l:'XP Çarpanı',          type:'number', min:.1, max:5,   step:.1  },
     { k:'coinMultiplier',    l:'Coin Çarpanı',         type:'number', min:.1, max:5,   step:.1  },
     { k:'maxGuildSize',      l:'Max Klan Boyutu',      type:'number', min:5,  max:100, step:1   },

@@ -8,6 +8,10 @@
 <title>NEBULA.io — Liderlik Tablosu</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/pages.css">
+<meta property="og:title" content="NEBULA.io — Liderlik Tablosu">
+<meta property="og:description" content="En iyi kozmik avcıları keşfet. NEBULA.io skor ve öldürme sıralaması.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#00e0ff">
 </head>
 <body>
 <canvas id="stars"></canvas>
@@ -53,6 +57,8 @@
 
 <script src="js/core.js"></script>
 <script>
+/* XSS guard: escHtml core.js'den gelir ama buildLB içinde de güvenli sarıcı */
+function _esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 const LB_MOCK = [
   {name:'StarDevil', el:'void',   score:482300, kills:574, time:'9:14:33', color:'#a040ff'},
   {name:'CosmicRay', el:'plasma', score:371200, kills:320, time:'7:52:10', color:'#00e0ff'},
@@ -89,7 +95,7 @@ function buildLB(sort = 'score') {
       <div class="lb-player">
         <div class="lb-av" style="border-color:${p.color};background:${p.color}22">${EL_IC[p.el]}</div>
         <div>
-          <span class="lb-pn">${p.name}${isYou?` <span style="color:var(--cyan);font-size:.55rem">(sen)</span>`:''}${p.isReal&&p.name!==cur?.name?' <span style="font-size:.5rem;color:var(--grn)">●</span>':''}</span>
+          <span class="lb-pn">${_esc(p.name)}${isYou?` <span style="color:var(--cyan);font-size:.55rem">(sen)</span>`:''}${p.isReal&&p.name!==cur?.name?' <span style="font-size:.5rem;color:var(--grn)">●</span>':''}</span>
           <span class="lb-pe">${p.el?.toUpperCase()}</span>
         </div>
       </div>

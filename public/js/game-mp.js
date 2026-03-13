@@ -1,7 +1,20 @@
-/* ═══════════════════════════════════════════════════════════
-   NEBULA.io — Multiplayer Client v4
-   4 Oda Sistemi + Food/Bot sync düzeltmesi
-═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   NEBULA.io — Multiplayer Client v5  ★★★★★ UPGRADED
+   ─────────────────────────────────────────────────────────────────
+   ✓ partPool kullanımı — eski `parts[]` array tamamen kaldırıldı,
+     game.js ParticlePool sistemiyle tam uyumlu hale getirildi
+   ✓ window._icePatches / window._neonSigns kirliliği giderildi —
+     artık game.js module-level değişkenlerine doğrudan yazılıyor
+   ✓ _mpUpdate() — boost mass drain eklendi (eksikti, boost sonsuzdu)
+   ✓ Adaptif server blend — ping'e göre otomatik ayarlama
+   ✓ Yeniden bağlanma UI — disconnect/reconnect toast gösteriliyor
+   ✓ _showDeath() — null guard'lar eklendi, saveUser güvenli çağrım
+   ✓ socket.on('treasure') — partPool.spawn kullanıyor (Particle yerine)
+   ✓ socket.on('nova_fx')  — partPool'a geçirildi
+   ✓ exitGame() — touch listener'lar da temizleniyor
+   ✓ _syncBots() — ölü bot temizleme artık güvenilir
+   ✓ selectRoom() — undefined guard eklendi
+═══════════════════════════════════════════════════════════════════ */
 
 let socket     = null;
 let myId       = null;
@@ -9,7 +22,18 @@ let selectedRoom = null;  // seçilen oda id'si
 let _leaderboard    = [];
 let _snapTreasures  = [];
 let _pingStart = 0;
-let _serverBlend    = 0.18;
+let _serverBlend    = 0.18; // adaptif: ping yükseldikçe azalır
+
+/** FIX: Adaptif server blend — ping değerine göre otomatik hesaplanır.
+ * Düşük ping (<80ms) → blend yüksek (0.25): sunucu pozisyonu hızlı benimsenir.
+ * Yüksek ping (>200ms) → blend düşük (0.08): client prediction ön planda kalır.
+ */
+function _calcBlend(pingMs) {
+  if (pingMs < 80)  return 0.25;
+  if (pingMs < 150) return 0.18;
+  if (pingMs < 250) return 0.12;
+  return 0.08;
+}
 let _otherPlayers   = new Map();  // id → Entity
 let _foodMap        = new Map();  // foodId → Food obj
 let tickN        = 0;             // frame counter for move throttle
@@ -66,15 +90,22 @@ function _mpUpdate() {
     if (tickN % 2 === 0) socket?.emit('move', { wx, wy });
   }
 
+  // FIX: Boost mass drain — önceden _mpUpdate'te yoktu, boost hiç bitmiyordu.
+  // game.js'den aynı sabitleri kullanıyoruz: BOOST_DRAIN=0.05, BOOST_MIN_MASS=8
+  if (boostActive) {
+    if (player.mass > (typeof BOOST_MIN_MASS!=='undefined'?BOOST_MIN_MASS:8)) {
+      player.mass -= (typeof BOOST_DRAIN!=='undefined'?BOOST_DRAIN:0.05);
+    } else {
+      boostActive = false;
+    }
+  }
+
   player.trail.unshift({ x: player.x, y: player.y });
   if (player.trail.length > 18) player.trail.pop();
   maxMass = Math.max(maxMass, Math.floor(player.mass));
 
-  if (S.particles) {
-    parts.forEach(p => p.upd());
-    parts = parts.filter(p => p.alive);
-    if (parts.length > 150) parts.splice(0, parts.length - 150);
-  }
+  // FIX: parts[] yerine partPool.update() — game.js ParticlePool ile senkron
+  if (S.particles) partPool.update();
 
   // Bot trail (görsel interpolasyon)
   bots.forEach(b => {
@@ -223,7 +254,8 @@ window.render = function() {
   blackHoles.forEach(drawBH);
   wormholes.forEach(drawWH);
   drawFoodBatch();
-  if(S.particles) parts.forEach(drawPart);
+  // FIX: partPool.draw — kamera sınırları içinde culling ile çizim
+  if(S.particles) partPool.draw(gctx, player.x - W/(2*zoom), player.y - H/(2*zoom), W/zoom, H/zoom);
 
   bots.forEach(b => { if(b.alive){drawTrail(b);drawOrb(b,false);} });
   _otherPlayers.forEach(op => {
@@ -368,8 +400,10 @@ function renderLobby(rooms) {
 }
 
 window.selectRoom = function(id) {
+  // FIX: undefined guard — geçersiz oda id'si ile MAP_THEME bozulmasın
+  if (!id) return;
   selectedRoom = id;
-  MAP_THEME = id; // tema = oda teması
+  MAP_THEME = id;
   renderLobby(_lastLobbyData || []);
 };
 
@@ -438,7 +472,8 @@ window.exitGame = function(){
   const c=document.getElementById('cur');if(c)c.style.display='none';
   window.removeEventListener('mousemove',onMM);
   window.removeEventListener('keydown',onKD);
-  // Lobby yenile
+  // FIX: touch listener'lar da temizleniyor — önceden sızıntı vardı
+  if(typeof _removeTouchListeners==='function') _removeTouchListeners();
   socket?.emit('get_lobby');
 };
 window.exitToHome=function(){window.exitGame();goPage('index.html');};
@@ -449,26 +484,30 @@ window.restartFromPause=function(){
 };
 
 function _showDeath(data){
-  const s=data.time||0,m=Math.floor(s/60),sec=s%60;
+  // FIX: data null guard — sunucudan boş veri gelebilir
+  if (!data) data = {};
+  const s=data.time||0, m=Math.floor(s/60), sec=s%60;
   const q=id=>document.getElementById(id);
-  const by=q('death-by');if(by)by.textContent=`— ${data.by||'?'} Tarafından —`;
-  const sc=q('death-sc');if(sc)sc.textContent=(data.score||0).toLocaleString();
-  const ms2=q('ds-mass');if(ms2)ms2.textContent=data.maxMass||0;
-  const kl=q('ds-kills');if(kl)kl.textContent=data.kills||0;
-  const tm=q('ds-time');if(tm)tm.textContent=`${m}:${String(sec).padStart(2,'0')}`;
-  const dc=q('death-coins');if(dc)dc.textContent=Math.floor((data.score||0)/100)+' ◈';
+  const by=q('death-by'); if(by) by.textContent=`— ${escHtml?escHtml(data.by||'?'):data.by||'?'} Tarafından —`;
+  const sc=q('death-sc'); if(sc) sc.textContent=(data.score||0).toLocaleString();
+  const ms2=q('ds-mass'); if(ms2) ms2.textContent=data.maxMass||0;
+  const kl=q('ds-kills'); if(kl) kl.textContent=data.kills||0;
+  const tm=q('ds-time');  if(tm) tm.textContent=`${m}:${String(sec).padStart(2,'0')}`;
+  const dc=q('death-coins'); if(dc) dc.textContent=Math.floor((data.score||0)/100)+' ◈';
   q('ov-death')?.classList.add('on');
-  const user=getCurrentUser();
+
+  // FIX: saveUser/updateNavUI/levelFromXp varlık kontrolü güçlendirildi
+  const user = typeof getCurrentUser==='function' ? getCurrentUser() : null;
   if(user){
-    user.score=Math.max(user.score||0,data.score||0);
-    user.kills=(user.kills||0)+(data.kills||0);
-    user.playtime=(user.playtime||0)+(data.time||0);
-    user.gamesPlayed=(user.gamesPlayed||0)+1;
-    user.coins=(user.coins||0)+Math.floor((data.score||0)/100);
-    user.xp=(user.xp||0)+Math.floor((data.score||0)/50)+(data.kills||0)*20;
-    if(typeof levelFromXp==='function') user.level=levelFromXp(user.xp);
-    if(typeof saveUser==='function') saveUser(user);
-    if(typeof updateNavUI==='function') updateNavUI();
+    user.score     = Math.max(user.score||0, data.score||0);
+    user.kills     = (user.kills||0) + (data.kills||0);
+    user.playtime  = (user.playtime||0) + (data.time||0);
+    user.gamesPlayed = (user.gamesPlayed||0) + 1;
+    user.coins     = (user.coins||0) + Math.floor((data.score||0)/100);
+    user.xp        = (user.xp||0) + Math.floor((data.score||0)/50) + (data.kills||0)*20;
+    if(typeof levelFromXp==='function')  user.level = levelFromXp(user.xp);
+    if(typeof saveUser==='function')     saveUser(user);
+    if(typeof updateNavUI==='function')  updateNavUI();
   }
 }
 
@@ -505,7 +544,15 @@ function _connectSocket(){
     _ensurePingUI(); _sendPing();
     socket.emit('get_lobby');
   });
-  socket.on('disconnect',()=>console.warn('⚠ Bağlantı kesildi'));
+  socket.on('disconnect', reason => {
+    console.warn('⚠ Bağlantı kesildi:', reason);
+    // FIX: Kullanıcıya görünür bildirim — önceden sadece console.warn vardı
+    showToast('⚠️ Sunucu bağlantısı kesildi! Yeniden bağlanılıyor...', '#ff6600', 4000);
+  });
+  socket.on('reconnect', attempt => {
+    showToast(`✅ Yeniden bağlandı (deneme ${attempt})`, '#00ff88', 2500);
+    socket.emit('get_lobby');
+  });
 
   // Lobby bilgisi
   socket.on('lobby_info', rooms => {
@@ -528,10 +575,13 @@ function _connectSocket(){
     clusters=data.clusters||[];
     safeZones=data.safeZones||[];
     _syncFood(data.food||[]);
-    window._icePatches=MAP_THEME==='buzul'
-      ?[[1000,1000],[3000,800],[800,3500],[4000,2500],[2500,2000],[3200,3800]].map(p=>({x:p[0],y:p[1],r:160+Math.random()*80})):[];
-    window._neonSigns=MAP_THEME==='neon'
-      ?Array.from({length:20},()=>({x:200+Math.random()*4600,y:200+Math.random()*4600,w:80+Math.random()*120,h:40+Math.random()*60,hue:Math.random()*360,ang:0})):[];
+    // FIX: window.* yerine game.js module-level değişkenlerine doğrudan yaz
+    _icePatches = MAP_THEME==='buzul'
+      ? [[1000,1000],[3000,800],[800,3500],[4000,2500],[2500,2000],[3200,3800]].map(p=>({x:p[0],y:p[1],r:160+Math.random()*80}))
+      : [];
+    _neonSigns = MAP_THEME==='neon'
+      ? Array.from({length:20},()=>({x:200+Math.random()*4600,y:200+Math.random()*4600,w:80+Math.random()*120,h:40+Math.random()*60,hue:Math.random()*360,ang:0}))
+      : [];
     _updateThemeBadge(MAP_THEME);
     console.log('🌍 Dünya hazır:',MAP_THEME,'| Yem:',data.food?.length,'| Asteroid:',data.asteroids?.length);
   });
@@ -584,7 +634,11 @@ function _connectSocket(){
     sfxTreasure();if(S.shake)camShake=8;
     if(S.particles){
       burstParts(x,y,col||'#ffbf00',28);
-      for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;parts.push(new Particle(x,y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true));}
+      // FIX: Particle class yerine partPool.spawn — GC baskısı azalır
+      for(let i=0;i<6;i++){
+        const a=(i/6)*Math.PI*2;
+        partPool.spawn(x,y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true);
+      }
     }
     score+=(coins||0)*2;
     showToast(`${['🥉','🥈','🥇'][tier||0]} Hazine! +◈${coins} +${m} Kütle`,col||'#ffbf00',2500);
@@ -592,8 +646,12 @@ function _connectSocket(){
 
   socket.on('nova_fx',({x,y,color})=>{
     if(S.particles){
-      for(let i=0;i<50;i++){const a=(i/50)*Math.PI*2,s=3+Math.random()*5;parts.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,color||'#00e0ff',32,2.5+Math.random()*3));}
-      for(let i=0;i<3;i++)parts.push(new Particle(x,y,0,0,color||'#00e0ff',45+i*8,25+i*15,true));
+      // FIX: partPool.spawn kullanımı — Particle push yerine pool reuse
+      for(let i=0;i<50;i++){
+        const a=(i/50)*Math.PI*2, s=3+Math.random()*5;
+        partPool.spawn(x,y,Math.cos(a)*s,Math.sin(a)*s,color||'#00e0ff',32,2.5+Math.random()*3);
+      }
+      for(let i=0;i<3;i++) partPool.spawn(x,y,0,0,color||'#00e0ff',45+i*8,25+i*15,true);
     }
     if(S.shake)camShake=5;
   });
@@ -629,12 +687,19 @@ function _connectSocket(){
 
   socket.on('pong_mp',()=>{
     const ms=Date.now()-_pingStart;
+    _serverBlend = _calcBlend(ms); // FIX: adaptif blend güncelle
     _updatePingUI(ms);
     setTimeout(_sendPing,3000);
   });
 }
 
-window.addEventListener('resize',()=>{if(gameRunning&&gc){gc.width=innerWidth;gc.height=innerHeight;}});
+window.addEventListener('resize',()=>{
+  if(gameRunning&&gc){
+    gc.width=innerWidth; gc.height=innerHeight;
+    // FIX: mmCanvas da yeniden boyutlandırılıyor (eksikti)
+    if(mmCanvas){ mmCanvas.width=mmCanvas.offsetWidth||160; mmCanvas.height=mmCanvas.offsetHeight||160; }
+  }
+});
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{
