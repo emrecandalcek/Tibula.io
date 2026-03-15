@@ -64,6 +64,8 @@ let gameRunning = false, gamePaused = false;
 let gameStartTime = 0, raf = null, mmFrame = 0;
 let mx = innerWidth/2, my = innerHeight/2;
 let boostCD = 0, novaCD = 0, specCD = 0, boostActive = false;
+let _boostTimer = 0; // FIX: boost kaç frame geçti sayacı
+let _spawnGrace = 0; // FIX: spawn sonrası yumuşak giriş (frame sayacı)
 let player = null, bots = [], food = [], wormholes = [], blackHoles = [], clusters = [];
 let combo = 0, comboTimer = 0, killCount = 0, maxMass = 0, score = 0, camShake = 0;
 let selEl = 'solar';
@@ -592,7 +594,7 @@ function initGame() {
   _icePatches=[]; _neonSigns=[];
   partPool.clear();
   combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
-  boostCD=0; novaCD=0; specCD=0; boostActive=false;
+  boostCD=0; novaCD=0; specCD=0; boostActive=false; _boostTimer=0; _spawnGrace=25; // FIX: 25 frame grace
   _frameCount=0; _achieveCounter=0; _cachedUser=getCurrentUser();
   activeWorld=WORLD;
 
@@ -626,7 +628,7 @@ function _initCommonState() {
   asteroids=[]; treasures=[]; safeZones=[]; _icePatches=[]; _neonSigns=[];
   partPool.clear();
   combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
-  boostCD=0; novaCD=0; specCD=0; boostActive=false;
+  boostCD=0; novaCD=0; specCD=0; boostActive=false; _boostTimer=0; _spawnGrace=25; // FIX
   blueTeam=[]; redTeam=[];
   _frameCount=0; _achieveCounter=0; _cachedUser=getCurrentUser();
 }
@@ -654,29 +656,42 @@ function update() {
   const wy=player.y+(my-gc.height/2)/zoom;
   const dx=wx-player.x, dy=wy-player.y, d=Math.hypot(dx,dy);
   if (d>1) {
-    // FIX: ?.45:1 → ? 0.45 : 1  (opsiyonel zincir karışıklığı giderildi)
     const iceSlow = applyIcePatch(player) ? 0.45 : 1;
     const spd=player.spd*(boostActive?2.1:1)*iceSlow;
     const t=Math.min(1,spd/d);
-    // FIX: Velocity lerp — ani yön değişimlerini yumuşat
-    // Önceden vx/vy anında atanıyordu → keskin, teleport hissi
-    // 0.75 ağırlık: kontrol hassasiyetini korurken akıcılık sağlar
-    player.vx = player.vx * 0.75 + dx * t * 0.25;
-    player.vy = player.vy * 0.75 + dy * t * 0.25;
+    // FIX: Spawn grace — ilk 25 frame'de hızı kısıtla
+    // Mouse uzakta olunca spawn anında "ışınlanma" önleniyor
+    if (_spawnGrace > 0) {
+      _spawnGrace--;
+      // Grace döneminde hız maksimum 1.2px/frame ile sınırlı
+      const graceScale = 1 - (_spawnGrace / 25) * 0.85;
+      player.vx = player.vx * 0.8 + dx * t * 0.2 * graceScale;
+      player.vy = player.vy * 0.8 + dy * t * 0.2 * graceScale;
+    } else {
+      // Normal hareket — velocity lerp
+      player.vx = player.vx * 0.75 + dx * t * 0.25;
+      player.vy = player.vy * 0.75 + dy * t * 0.25;
+    }
     player.ang=Math.atan2(dy,dx);
   } else {
-    // Durma yumuşatma — mouse yakınında frenleme
+    if (_spawnGrace > 0) _spawnGrace--;
     player.vx *= 0.85;
     player.vy *= 0.85;
   }
   player.x=Math.max(player.r,Math.min(activeWorld-player.r,player.x+player.vx));
   player.y=Math.max(player.r,Math.min(activeWorld-player.r,player.y+player.vy));
 
-  // Boost: FIX — was using both a setTimeout AND a mass-check, causing a race condition.
-  // Now mass-check is the sole terminator; doBoost() does NOT set a timeout.
+  // FIX: Boost sınırlı süre — hem mass hem frame sayacı kontrol ediliyor.
+  // Önceden sadece mass kontrolü vardı → büyük oyuncuda boost sonsuz sürüyordu.
   if (boostActive) {
-    if (player.mass>BOOST_MIN_MASS) player.mass-=BOOST_DRAIN; else boostActive=false;
-    if (S.particles&&Math.random()<.6) addPart(player.x,player.y,Math.cos(player.ang+Math.PI)*(1+Math.random()*2),Math.sin(player.ang+Math.PI)*(1+Math.random()*2),getTrailCol(),22,2.5);
+    _boostTimer++;
+    if (player.mass > BOOST_MIN_MASS && _boostTimer <= BOOST_MAX_F) {
+      player.mass -= BOOST_DRAIN;
+      if (S.particles&&Math.random()<.6) addPart(player.x,player.y,Math.cos(player.ang+Math.PI)*(1+Math.random()*2),Math.sin(player.ang+Math.PI)*(1+Math.random()*2),getTrailCol(),22,2.5);
+    } else {
+      boostActive = false;
+      _boostTimer = 0;
+    }
   }
 
   player.trail.unshift({x:player.x,y:player.y});
@@ -1171,9 +1186,8 @@ function updateElBadge() {
 // ── ABILITIES ─────────────────────────────────────────────────────
 function doBoost() {
   if(boostCD>0||!player?.alive) return;
-  // FIX: removed the setTimeout race condition. boostActive is now terminated
-  // exclusively by the mass-drain check in update(). No dual-stop race.
   boostActive=true; boostCD=BOOST_CD_F;
+  _boostTimer=0; // FIX: her boost başlangıcında sayacı sıfırla
   sfxBoost();
 }
 
@@ -1525,6 +1539,8 @@ function endTeam() {
 function die(by) {
   if(!gameRunning||!player?.alive) return;
   player.alive=false; gameRunning=false;
+  // FIX: RAF hemen iptal et — donuk canvas kalmıyor
+  if(raf) { cancelAnimationFrame(raf); raf=null; }
   sfxDie();
   burstParts(player.x,player.y,player.color,35);
 
@@ -1574,15 +1590,34 @@ function die(by) {
     if(user.gameHistory.length>50) user.gameHistory=user.gameHistory.slice(-50);
     saveUser(user); updateNavUI();
   }
-  setTimeout(()=>{ const d=document.getElementById('ov-death'); if(d) d.classList.add('on'); },700);
+  // FIX: Canvas'ı soldur — donuk görüntü yerine temiz geçiş
+  if(gctx&&gc){
+    gctx.fillStyle='rgba(2,2,14,0.0)';
+    let _fadeAlpha=0;
+    const _fadeInterval=setInterval(()=>{
+      _fadeAlpha+=0.06;
+      gctx.fillStyle=`rgba(2,2,14,${Math.min(_fadeAlpha,0.92)})`;
+      gctx.fillRect(0,0,gc.width,gc.height);
+      if(_fadeAlpha>=0.92) clearInterval(_fadeInterval);
+    },16);
+  }
+  // Ölüm ekranını 500ms'de göster (önceden 700ms)
+  setTimeout(()=>{
+    const d=document.getElementById('ov-death');
+    if(d) d.classList.add('on');
+  }, 500);
 }
 
 function restartGame() {
   document.getElementById('ov-death').classList.remove('on');
-  if(raf) cancelAnimationFrame(raf);
+  if(raf) { cancelAnimationFrame(raf); raf=null; }
   if(!gc){ gc=document.getElementById('gc'); gctx=gc.getContext('2d'); mmCanvas=document.getElementById('mm'); if(mmCanvas) mmCtx=mmCanvas.getContext('2d'); }
   gc.width=innerWidth; gc.height=innerHeight;
-  initGame(); gameRunning=true; gameStartTime=Date.now();
+  // FIX: gctx'i temizle — ölüm ekranındaki soluk görüntü silinir
+  if(gctx) gctx.clearRect(0,0,gc.width,gc.height);
+  GAME_MODE='normal'; activeWorld=WORLD;
+  initGame(); // _spawnGrace = 25 burada set ediliyor
+  gameRunning=true; gameStartTime=Date.now();
   document.getElementById('kf').innerHTML=''; loop();
 }
 

@@ -129,9 +129,17 @@ function _mpUpdate() {
 
   if (S.particles) partPool.update();
 
-  // Bot trail (görsel interpolasyon)
+  // Bot trail — render öncesi pozisyonu kaydet
+  // FIX: Trail güncelleme RENDER ÖNCESİ yapılıyor (doğru sıra)
+  // Büyük pozisyon farkı yoksa (trail zaten _syncBots'ta temizlendi)
   bots.forEach(b => {
     if (!b.alive) return;
+    // Trail'de son kayıttan çok uzaksa (snap sonrası) trail'i temizle
+    if (b.trail.length > 0) {
+      const last = b.trail[0];
+      const d = Math.hypot(b.x - last.x, b.y - last.y);
+      if (d > 80) { b.trail = []; } // büyük sıçrama — trail sıfırla
+    }
     b.trail.unshift({ x: b.x, y: b.y });
     if (b.trail.length > 14) b.trail.pop();
   });
@@ -160,9 +168,15 @@ function _syncPlayers(list) {
     }
     // FIX: 0.3 → 0.18 — diğer oyuncuların hareketi de daha yumuşak
     // 0.3 çok hızlı yaklaşıyordu, diğerleri zıplayarak hareket ediyordu
-    op.x    += (p.x - op.x) * 0.18;
-    op.y    += (p.y - op.y) * 0.18;
-    op.mass += (p.mass - op.mass) * 0.2; // kütle de yumuşak sync
+    const pDist = Math.hypot(p.x - op.x, p.y - op.y);
+    if (pDist > 200) {
+      // FIX: Büyük sıçrama (respawn) — anında ışınla
+      op.x = p.x; op.y = p.y; op.trail = [];
+    } else {
+      op.x += (p.x - op.x) * 0.18;
+      op.y += (p.y - op.y) * 0.18;
+    }
+    op.mass += (p.mass - op.mass) * 0.2;
     op.alive = p.alive;
     op.phaseT = p.phaseT || 0;
     op.trail  = p.trail || [];
@@ -185,9 +199,17 @@ function _syncBots(list) {
       bot.pulseP = Math.random() * Math.PI * 2;
       bots.push(bot);
     }
-    // FIX: 0.25 → 0.15 — bot hareketi yumuşatıldı
-    bot.x   += (b.x - bot.x) * 0.15;
-    bot.y   += (b.y - bot.y) * 0.15;
+    const bDist = Math.hypot(b.x - bot.x, b.y - bot.y);
+    if (bDist > 150) {
+      // FIX: Büyük sıçrama (respawn/wormhole) — anında ışınla ve trail temizle
+      // Bu sayede trail botun ÖNÜNDE görünmüyor
+      bot.x = b.x; bot.y = b.y;
+      bot.trail = [];
+    } else {
+      // Normal interpolasyon — 0.12 ile daha yumuşak hareket
+      bot.x   += (b.x - bot.x) * 0.12;
+      bot.y   += (b.y - bot.y) * 0.12;
+    }
     bot.mass += (b.mass - bot.mass) * 0.18;
     bot.alive = true;
     bot.ang  = b.ang   || 0;
@@ -445,6 +467,8 @@ window.startGame = function(){
   boostCD=0; novaCD=0; specCD=0; boostActive=false; tickN=0; NOW=Date.now();
   // FIX: Önceki oturumdan kalan reconciliation hedeflerini sıfırla
   _srvX=null; _srvY=null; _srvMass=null;
+  // FIX: Spawn grace — game.js'deki grace periodu sıfırla (ışınlanma önle)
+  if(typeof _spawnGrace !== 'undefined') window._spawnGrace = 25;
 
   const nick=(document.getElementById('game-nick')?.value||'').trim()||'Gezgin';
   const user=getCurrentUser();
@@ -485,7 +509,15 @@ window.startGame = function(){
 
 // ── Death / Restart / Exit ────────────────────────────────────
 window.restartGame = function(){
+  // FIX: Sadece overlay kaldırmak yetmez — oyunu sıfırla ve yeniden başlat
+  // Önceden canvas donuk kalıyor, loop duruyordu → oyun oynanamazdı
   document.getElementById('ov-death')?.classList.remove('on');
+  if(raf){ cancelAnimationFrame(raf); raf=null; }
+  if(gc && gctx) gctx.clearRect(0,0,gc.width,gc.height);
+  // Kısa gecikme ile yeniden başlat (overlay geçişi için)
+  setTimeout(()=>{
+    if(typeof window.startGame==='function') window.startGame();
+  }, 150);
 };
 window.exitGame = function(){
   document.getElementById('ov-death')?.classList.remove('on');
@@ -704,10 +736,19 @@ function _connectSocket(){
   });
 
   socket.on('respawned',({x,y})=>{
-    if(player){player.x=x;player.y=y;player.mass=15;player.alive=true;player.trail=[];}
-    score=0;combo=0;killCount=0;
+    if(player){
+      player.x=x; player.y=y; player.mass=15;
+      player.alive=true; player.trail=[];
+      player.vx=0; player.vy=0;
+    }
+    // FIX: Respawn sonrası reconciliation hedeflerini sıfırla
+    _srvX=null; _srvY=null; _srvMass=null;
+    // FIX: Spawn grace yeniden başlat
+    if(typeof _spawnGrace!=='undefined') window._spawnGrace=25;
+    score=0; combo=0; killCount=0;
     document.getElementById('ov-death')?.classList.remove('on');
-    gameRunning=true;if(!raf)raf=requestAnimationFrame(loop);
+    gameRunning=true;
+    if(!raf) raf=requestAnimationFrame(loop);
   });
 
   socket.on('pong_mp', () => {
