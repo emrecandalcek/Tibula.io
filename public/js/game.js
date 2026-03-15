@@ -35,7 +35,7 @@ const BOT_RETARGET_F  = 12;   // frames between bot retargets (avg)
 const BOT_FOOD_RANGE  = 300;  // max dist bot will seek food
 const EAT_RATIO       = 1.08; // must be X× larger to eat
 const EAT_DEPTH       = 0.55; // overlap depth to trigger eat
-const CAM_SHAKE_DECAY = 0.88; // FIX: 0.7→0.88 — sallantı çok daha hızlı söner
+const CAM_SHAKE_DECAY = 0.9; // FIX: 0.7→0.9 daha hızlı söner
 const TREASURE_NEAR   = 380;  // px to fully reveal treasure
 
 const EL_CFG = {
@@ -64,8 +64,7 @@ let gameRunning = false, gamePaused = false;
 let gameStartTime = 0, raf = null, mmFrame = 0;
 let mx = innerWidth/2, my = innerHeight/2;
 let boostCD = 0, novaCD = 0, specCD = 0, boostActive = false;
-let _boostTimer = 0; // FIX: boost kaç frame geçti sayacı
-let _spawnGrace = 0; // FIX: spawn sonrası yumuşak giriş (frame sayacı)
+let _boostFrames = 0; // FIX: boost frame sayacı
 let player = null, bots = [], food = [], wormholes = [], blackHoles = [], clusters = [];
 let combo = 0, comboTimer = 0, killCount = 0, maxMass = 0, score = 0, camShake = 0;
 let selEl = 'solar';
@@ -520,7 +519,7 @@ function updateAsteroids() {
         const ang=Math.atan2(player.y-a.y,player.x-a.x);
         player.vx+=Math.cos(ang)*3.5; player.vy+=Math.sin(ang)*3.5;
         player.mass=Math.max(10,player.mass-3);
-        if(S.shake) camShake=3; // FIX: 6→3
+        if(S.shake) camShake=3;
         burstParts(player.x,player.y,th.particleCol,12);
         sfxAsteroid(); showToast('☄️ Asteroid çarptı! -3 kütle','#ff6600',1500);
       }
@@ -548,7 +547,7 @@ function updateTreasures() {
         if (u) { u.coins=(u.coins||0)+tr.coins; DB.users=users; updateNavUI(); }
       }
       score+=tr.coins*2;
-      if(S.shake) camShake=4; // FIX: 8→4
+      if(S.shake) camShake=4;
       if(S.particles) {
         partPool.burst(tr.x,tr.y,tr.col||'#ffbf00',28);
         for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;partPool.spawn(tr.x,tr.y,Math.cos(a)*3,Math.sin(a)*3,'#ffbf00',50,8,true);}
@@ -594,7 +593,7 @@ function initGame() {
   _icePatches=[]; _neonSigns=[];
   partPool.clear();
   combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
-  boostCD=0; novaCD=0; specCD=0; boostActive=false; _boostTimer=0; _spawnGrace=25; // FIX: 25 frame grace
+  boostCD=0; novaCD=0; specCD=0; boostActive=false; _boostFrames=0;
   _frameCount=0; _achieveCounter=0; _cachedUser=getCurrentUser();
   activeWorld=WORLD;
 
@@ -628,7 +627,7 @@ function _initCommonState() {
   asteroids=[]; treasures=[]; safeZones=[]; _icePatches=[]; _neonSigns=[];
   partPool.clear();
   combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
-  boostCD=0; novaCD=0; specCD=0; boostActive=false; _boostTimer=0; _spawnGrace=25; // FIX
+  boostCD=0; novaCD=0; specCD=0; boostActive=false; _boostFrames=0;
   blueTeam=[]; redTeam=[];
   _frameCount=0; _achieveCounter=0; _cachedUser=getCurrentUser();
 }
@@ -659,38 +658,24 @@ function update() {
     const iceSlow = applyIcePatch(player) ? 0.45 : 1;
     const spd=player.spd*(boostActive?2.1:1)*iceSlow;
     const t=Math.min(1,spd/d);
-    // FIX: Spawn grace — ilk 25 frame'de hızı kısıtla
-    // Mouse uzakta olunca spawn anında "ışınlanma" önleniyor
-    if (_spawnGrace > 0) {
-      _spawnGrace--;
-      // Grace döneminde hız maksimum 1.2px/frame ile sınırlı
-      const graceScale = 1 - (_spawnGrace / 25) * 0.85;
-      player.vx = player.vx * 0.8 + dx * t * 0.2 * graceScale;
-      player.vy = player.vy * 0.8 + dy * t * 0.2 * graceScale;
-    } else {
-      // Normal hareket — velocity lerp
-      player.vx = player.vx * 0.75 + dx * t * 0.25;
-      player.vy = player.vy * 0.75 + dy * t * 0.25;
-    }
+    // FIX: velocity lerp — ani atama yerine yumuşak geçiş
+    player.vx = player.vx * 0.75 + dx * t * 0.25;
+    player.vy = player.vy * 0.75 + dy * t * 0.25;
     player.ang=Math.atan2(dy,dx);
   } else {
-    if (_spawnGrace > 0) _spawnGrace--;
-    player.vx *= 0.85;
-    player.vy *= 0.85;
+    player.vx *= 0.85; player.vy *= 0.85;
   }
   player.x=Math.max(player.r,Math.min(activeWorld-player.r,player.x+player.vx));
   player.y=Math.max(player.r,Math.min(activeWorld-player.r,player.y+player.vy));
 
-  // FIX: Boost sınırlı süre — hem mass hem frame sayacı kontrol ediliyor.
-  // Önceden sadece mass kontrolü vardı → büyük oyuncuda boost sonsuz sürüyordu.
+  // FIX: Boost — frame sayacı ile sınırlı süre + mass kontrolü
   if (boostActive) {
-    _boostTimer++;
-    if (player.mass > BOOST_MIN_MASS && _boostTimer <= BOOST_MAX_F) {
+    _boostFrames++;
+    if (player.mass > BOOST_MIN_MASS && _boostFrames <= BOOST_MAX_F) {
       player.mass -= BOOST_DRAIN;
       if (S.particles&&Math.random()<.6) addPart(player.x,player.y,Math.cos(player.ang+Math.PI)*(1+Math.random()*2),Math.sin(player.ang+Math.PI)*(1+Math.random()*2),getTrailCol(),22,2.5);
     } else {
-      boostActive = false;
-      _boostTimer = 0;
+      boostActive = false; _boostFrames = 0;
     }
   }
 
@@ -737,7 +722,7 @@ function update() {
       killCount++; combo++; comboTimer=COMBO_TTL_F;
       sfxKill(); if(S.combo){showCombo(combo);sfxCombo(combo);}
       showKF(player.name,bot.name);
-      if(S.shake) camShake=4; // FIX: 7→4
+      if(S.shake) camShake=4;
       burstParts(bot.x,bot.y,bot.color,22);
       bot.alive=false;
       if(GAME_MODE==='team') _bumpTeamKill('blue');
@@ -875,7 +860,7 @@ function updateBots() {
     }
 
     const dx=bot.btx-bot.x,dy=bot.bty-bot.y,d=Math.hypot(dx,dy);
-    const iceSlow = applyIcePatch(bot) ? 0.5 : 1; // FIX: ?.5:1 → ? 0.5 : 1
+    const iceSlow = applyIcePatch(bot) ? 0.5 : 1;
     if(d>1){const t=Math.min(1,(bot.spd*iceSlow)/d);bot.vx=dx*t;bot.vy=dy*t;}
     bot.x=Math.max(bot.r,Math.min(activeWorld-bot.r,bot.x+bot.vx));
     bot.y=Math.max(bot.r,Math.min(activeWorld-bot.r,bot.y+bot.vy));
@@ -1186,15 +1171,14 @@ function updateElBadge() {
 // ── ABILITIES ─────────────────────────────────────────────────────
 function doBoost() {
   if(boostCD>0||!player?.alive) return;
-  boostActive=true; boostCD=BOOST_CD_F;
-  _boostTimer=0; // FIX: her boost başlangıcında sayacı sıfırla
+  boostActive=true; boostCD=BOOST_CD_F; _boostFrames=0;
   sfxBoost();
 }
 
 function doNova() {
   if(novaCD>0||!player?.alive||player.mass<14) return;
   player.mass-=10; novaCD=NOVA_CD_F;
-  if(S.shake) camShake=3; // FIX: 5→3
+  if(S.shake) camShake=3;
   sfxNova();
   bots.forEach(b=>{if(!b.alive)return;const d=Math.hypot(b.x-player.x,b.y-player.y);if(d<190){const a=Math.atan2(b.y-player.y,b.x-player.x),f=(1-d/190)*8;b.vx+=Math.cos(a)*f;b.vy+=Math.sin(a)*f;b.botT=20;}});
   blackHoles.forEach(bh=>{if(Math.hypot(bh.x-player.x,bh.y-player.y)<280)bh.stunT=110;});
@@ -1539,8 +1523,6 @@ function endTeam() {
 function die(by) {
   if(!gameRunning||!player?.alive) return;
   player.alive=false; gameRunning=false;
-  // FIX: RAF hemen iptal et — donuk canvas kalmıyor
-  if(raf) { cancelAnimationFrame(raf); raf=null; }
   sfxDie();
   burstParts(player.x,player.y,player.color,35);
 
@@ -1590,34 +1572,15 @@ function die(by) {
     if(user.gameHistory.length>50) user.gameHistory=user.gameHistory.slice(-50);
     saveUser(user); updateNavUI();
   }
-  // FIX: Canvas'ı soldur — donuk görüntü yerine temiz geçiş
-  if(gctx&&gc){
-    gctx.fillStyle='rgba(2,2,14,0.0)';
-    let _fadeAlpha=0;
-    const _fadeInterval=setInterval(()=>{
-      _fadeAlpha+=0.06;
-      gctx.fillStyle=`rgba(2,2,14,${Math.min(_fadeAlpha,0.92)})`;
-      gctx.fillRect(0,0,gc.width,gc.height);
-      if(_fadeAlpha>=0.92) clearInterval(_fadeInterval);
-    },16);
-  }
-  // Ölüm ekranını 500ms'de göster (önceden 700ms)
-  setTimeout(()=>{
-    const d=document.getElementById('ov-death');
-    if(d) d.classList.add('on');
-  }, 500);
+  setTimeout(()=>{ const d=document.getElementById('ov-death'); if(d) d.classList.add('on'); },700);
 }
 
 function restartGame() {
   document.getElementById('ov-death').classList.remove('on');
-  if(raf) { cancelAnimationFrame(raf); raf=null; }
+  if(raf) cancelAnimationFrame(raf);
   if(!gc){ gc=document.getElementById('gc'); gctx=gc.getContext('2d'); mmCanvas=document.getElementById('mm'); if(mmCanvas) mmCtx=mmCanvas.getContext('2d'); }
   gc.width=innerWidth; gc.height=innerHeight;
-  // FIX: gctx'i temizle — ölüm ekranındaki soluk görüntü silinir
-  if(gctx) gctx.clearRect(0,0,gc.width,gc.height);
-  GAME_MODE='normal'; activeWorld=WORLD;
-  initGame(); // _spawnGrace = 25 burada set ediliyor
-  gameRunning=true; gameStartTime=Date.now();
+  initGame(); gameRunning=true; gameStartTime=Date.now();
   document.getElementById('kf').innerHTML=''; loop();
 }
 

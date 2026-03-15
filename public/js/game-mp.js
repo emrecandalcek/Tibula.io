@@ -9,22 +9,11 @@ let selectedRoom = null;  // seçilen oda id'si
 let _leaderboard    = [];
 let _snapTreasures  = [];
 let _pingStart = 0;
-
-/**
- * FIX — Smooth server reconciliation
- *
- * Eski davranış: snap event'i tetiklendiğinde (~20Hz) player.x/y
- * anında lerp ile zıplatılıyordu → kare kare ışınlanma hissi.
- *
- * Yeni davranış: snap geldikçe _srvX/_srvY hedefleri güncellenir,
- * _mpUpdate() her frame (60Hz) bu hedefe doğru yumuşakça kayar.
- * Bu sayede 20Hz server tick → 60Hz smooth görüntü.
- */
-let _serverBlend = 0.12;   // adaptif — ping'e göre güncellenir
-let _srvX = null;          // sunucudan gelen hedef X
-let _srvY = null;          // sunucudan gelen hedef Y
-let _srvMass = null;       // sunucudan gelen hedef kütle
-let _reconcileStrength = 0.08; // frame başına pozisyon düzeltme ağırlığı
+let _serverBlend    = 0.18;
+// FIX: Spawn grace — ilk N frame'de hız kısıtlanır (ışınlanma önler)
+let _mpSpawnGrace   = 0;
+// FIX: Server reconciliation hedefleri (snap'te güncellenir, update'te uygulanır)
+let _srvX = null, _srvY = null, _srvMass = null;
 let _otherPlayers   = new Map();  // id → Entity
 let _foodMap        = new Map();  // foodId → Food obj
 let tickN        = 0;             // frame counter for move throttle
@@ -55,28 +44,19 @@ window.loop = function() {
 // ── Client-side prediction ────────────────────────────────────
 function _mpUpdate() {
   if (!player?.alive) return;
-  NOW = Date.now();
-
-  if (boostCD > 0) boostCD--;
+  NOW = Date.now(); // per-frame time cache (animasyonlar için)
+  if (boostCD > 0) {
+    boostCD--;
+    // FIX: boostCD bitince boostActive'i kapat — drain kodu yoktu, boost sonsuza gidiyordu
+    if (boostCD === 0) boostActive = false;
+  }
   if (novaCD  > 0) novaCD--;
   if (specCD  > 0) specCD--;
   if (player.phaseT > 0) player.phaseT--;
-
-  // FIX: camShake decay hızlandırıldı — önceden 0.7/frame, şimdi 0.85/frame
-  // Bu sayede sallantı çok daha hızlı söner ve "titreme" hissi azalır
-  if (camShake > 0) camShake -= 0.85;
-
+  if (camShake > 0) camShake -= 0.7;
   if (comboTimer > 0) {
     comboTimer--;
     if (comboTimer <= 0 && combo > 0) { combo = 0; hideCombo(); }
-  }
-
-  // FIX: Boost mass drain — önceden yoktu, boost hiç bitmiyordu
-  if (boostActive) {
-    const DRAIN = typeof BOOST_DRAIN !== 'undefined' ? BOOST_DRAIN : 0.05;
-    const MIN   = typeof BOOST_MIN_MASS !== 'undefined' ? BOOST_MIN_MASS : 8;
-    if (player.mass > MIN) player.mass -= DRAIN;
-    else boostActive = false;
   }
 
   if (gc) {
@@ -87,58 +67,65 @@ function _mpUpdate() {
     if (d > 0.5) {
       const spd = Math.max(1.4, 5.5 - player.mass * 0.012) * (boostActive ? 2.1 : 1);
       const t = Math.min(1, spd / d);
-      player.vx = dx * t; player.vy = dy * t; player.ang = Math.atan2(dy, dx);
+      // FIX: Velocity lerp — vx/vy anında atanmıyor, yumuşakça yaklaşıyor
+      // Önceden: player.vx = dx * t  → spawn'da anında tam hız = ışınlanma hissi
+      // Şimdi:   %75 eski hız + %25 hedef hız = akıcı geçiş
+      if (_mpSpawnGrace > 0) {
+        // Spawn grace: ilk 30 frame'de çok yavaş hızlan
+        _mpSpawnGrace--;
+        const gf = (_mpSpawnGrace / 30) * 0.9; // 0→0.9 arası frenleme
+        player.vx = player.vx * 0.85 + dx * t * 0.15 * (1 - gf);
+        player.vy = player.vy * 0.85 + dy * t * 0.15 * (1 - gf);
+      } else {
+        player.vx = player.vx * 0.75 + dx * t * 0.25;
+        player.vy = player.vy * 0.75 + dy * t * 0.25;
+      }
+      player.ang = Math.atan2(dy, dx);
+    } else {
+      player.vx *= 0.85;
+      player.vy *= 0.85;
     }
     player.x = Math.max(player.r, Math.min(WORLD - player.r, player.x + player.vx));
     player.y = Math.max(player.r, Math.min(WORLD - player.r, player.y + player.vy));
     if (tickN % 2 === 0) socket?.emit('move', { wx, wy });
   }
 
-  // ── FIX: Server reconciliation — frame'lere yayılmış smooth düzeltme ──
-  // Eski: snap event'te tek seferde lerp → her 50ms'de bir zıplama (20Hz)
-  // Yeni: hedef (_srvX/_srvY) snap'te güncellenir, burası her 60fps frame'de
-  //       küçük adımlarla hedefe yaklaşır → 60Hz smooth hareket
+  // FIX: Server reconciliation — frame başına yumuşak pozisyon düzeltmesi
   if (_srvX !== null && player) {
-    const diffX = _srvX - player.x;
-    const diffY = _srvY - player.y;
-    const dist  = Math.hypot(diffX, diffY);
-
-    if (dist > 120) {
-      // Çok uzaklaştıysak (lag spike) hızlı yaklaş
-      player.x += diffX * 0.35;
-      player.y += diffY * 0.35;
-    } else if (dist > 2) {
-      // Normal reconciliation — yumuşak sürükleme
-      player.x += diffX * _reconcileStrength;
-      player.y += diffY * _reconcileStrength;
-    } else {
-      // Yeterince yakın — artık düzeltmeye gerek yok
+    const rx = _srvX - player.x, ry = _srvY - player.y;
+    const rd = Math.hypot(rx, ry);
+    if (rd < 2) {
       _srvX = null; _srvY = null;
+    } else if (rd > 80) {
+      player.x += rx * 0.3; player.y += ry * 0.3; // hızlı düzelt
+    } else {
+      player.x += rx * 0.08; player.y += ry * 0.08; // yavaş yumuşak
     }
   }
-
-  // Kütle sunucudan yumuşakça senkronla
   if (_srvMass !== null && player) {
-    player.mass += (_srvMass - player.mass) * 0.15;
-    if (Math.abs(_srvMass - player.mass) < 0.5) _srvMass = null;
+    player.mass += (_srvMass - player.mass) * 0.12;
+    if (Math.abs(_srvMass - player.mass) < 0.3) _srvMass = null;
   }
 
   player.trail.unshift({ x: player.x, y: player.y });
   if (player.trail.length > 18) player.trail.pop();
   maxMass = Math.max(maxMass, Math.floor(player.mass));
 
-  if (S.particles) partPool.update();
+  if (S.particles) {
+    if (typeof partPool !== 'undefined') partPool.update();
+    else {
+      parts.forEach(p => p.upd());
+      parts = parts.filter(p => p.alive);
+    }
+  }
 
-  // Bot trail — render öncesi pozisyonu kaydet
-  // FIX: Trail güncelleme RENDER ÖNCESİ yapılıyor (doğru sıra)
-  // Büyük pozisyon farkı yoksa (trail zaten _syncBots'ta temizlendi)
+  // Bot trail (görsel interpolasyon)
   bots.forEach(b => {
     if (!b.alive) return;
-    // Trail'de son kayıttan çok uzaksa (snap sonrası) trail'i temizle
+    // FIX: Trail'de son nokta ile şimdiki pozisyon arasında büyük fark varsa sıfırla
     if (b.trail.length > 0) {
-      const last = b.trail[0];
-      const d = Math.hypot(b.x - last.x, b.y - last.y);
-      if (d > 80) { b.trail = []; } // büyük sıçrama — trail sıfırla
+      const ld = Math.hypot(b.x - b.trail[0].x, b.y - b.trail[0].y);
+      if (ld > 80) b.trail = [];
     }
     b.trail.unshift({ x: b.x, y: b.y });
     if (b.trail.length > 14) b.trail.pop();
@@ -166,17 +153,9 @@ function _syncPlayers(list) {
       op.id = p.id;
       _otherPlayers.set(p.id, op);
     }
-    // FIX: 0.3 → 0.18 — diğer oyuncuların hareketi de daha yumuşak
-    // 0.3 çok hızlı yaklaşıyordu, diğerleri zıplayarak hareket ediyordu
-    const pDist = Math.hypot(p.x - op.x, p.y - op.y);
-    if (pDist > 200) {
-      // FIX: Büyük sıçrama (respawn) — anında ışınla
-      op.x = p.x; op.y = p.y; op.trail = [];
-    } else {
-      op.x += (p.x - op.x) * 0.18;
-      op.y += (p.y - op.y) * 0.18;
-    }
-    op.mass += (p.mass - op.mass) * 0.2;
+    op.x    += (p.x - op.x) * 0.3;
+    op.y    += (p.y - op.y) * 0.3;
+    op.mass  = p.mass;
     op.alive = p.alive;
     op.phaseT = p.phaseT || 0;
     op.trail  = p.trail || [];
@@ -199,18 +178,16 @@ function _syncBots(list) {
       bot.pulseP = Math.random() * Math.PI * 2;
       bots.push(bot);
     }
-    const bDist = Math.hypot(b.x - bot.x, b.y - bot.y);
-    if (bDist > 150) {
-      // FIX: Büyük sıçrama (respawn/wormhole) — anında ışınla ve trail temizle
-      // Bu sayede trail botun ÖNÜNDE görünmüyor
-      bot.x = b.x; bot.y = b.y;
-      bot.trail = [];
+    const _bd = Math.hypot(b.x - bot.x, b.y - bot.y);
+    if (_bd > 120) {
+      // FIX: Büyük sıçrama (respawn/wormhole) — anında konumla ve trail sıfırla
+      // Trail temizlenmezse eski koordinatlarda kalıp botun ÖNÜNDE görünüyor
+      bot.x = b.x; bot.y = b.y; bot.trail = [];
     } else {
-      // Normal interpolasyon — 0.12 ile daha yumuşak hareket
-      bot.x   += (b.x - bot.x) * 0.12;
-      bot.y   += (b.y - bot.y) * 0.12;
+      bot.x += (b.x - bot.x) * 0.15;
+      bot.y += (b.y - bot.y) * 0.15;
     }
-    bot.mass += (b.mass - bot.mass) * 0.18;
+    bot.mass = b.mass;
     bot.alive = true;
     bot.ang  = b.ang   || 0;
     bot.color = b.color;
@@ -465,10 +442,7 @@ window.startGame = function(){
   _otherPlayers.clear(); _foodMap.clear(); _snapTreasures=[];
   combo=0; comboTimer=0; killCount=0; maxMass=0; score=0; camShake=0;
   boostCD=0; novaCD=0; specCD=0; boostActive=false; tickN=0; NOW=Date.now();
-  // FIX: Önceki oturumdan kalan reconciliation hedeflerini sıfırla
-  _srvX=null; _srvY=null; _srvMass=null;
-  // FIX: Spawn grace — game.js'deki grace periodu sıfırla (ışınlanma önle)
-  if(typeof _spawnGrace !== 'undefined') window._spawnGrace = 25;
+  _mpSpawnGrace=30; _srvX=null; _srvY=null; _srvMass=null; // FIX
 
   const nick=(document.getElementById('game-nick')?.value||'').trim()||'Gezgin';
   const user=getCurrentUser();
@@ -509,15 +483,17 @@ window.startGame = function(){
 
 // ── Death / Restart / Exit ────────────────────────────────────
 window.restartGame = function(){
-  // FIX: Sadece overlay kaldırmak yetmez — oyunu sıfırla ve yeniden başlat
-  // Önceden canvas donuk kalıyor, loop duruyordu → oyun oynanamazdı
+  // FIX: Sadece overlay kaldırmak yetmez!
+  // Önceden: overlay kapanıyor ama gameRunning=false, loop durmuş → siyah ekran
   document.getElementById('ov-death')?.classList.remove('on');
-  if(raf){ cancelAnimationFrame(raf); raf=null; }
-  if(gc && gctx) gctx.clearRect(0,0,gc.width,gc.height);
-  // Kısa gecikme ile yeniden başlat (overlay geçişi için)
-  setTimeout(()=>{
-    if(typeof window.startGame==='function') window.startGame();
-  }, 150);
+  if (gctx && gc) gctx.clearRect(0, 0, gc.width, gc.height);
+  // Sunucuya respawn isteği gönder
+  socket?.emit('respawn');
+  // Sunucu respawn event'i dönmezse (offline mod) lokal yeniden başlat
+  gameRunning = true;
+  if (!raf) raf = requestAnimationFrame(loop);
+  // Grace periodu sıfırla
+  _mpSpawnGrace = 30;
 };
 window.exitGame = function(){
   document.getElementById('ov-death')?.classList.remove('on');
@@ -629,42 +605,33 @@ function _connectSocket(){
   // Snapshot
   socket.on('snap', data => {
     if (!myId && socket.id) { myId = socket.id; if (player) player.id = myId; }
-
     const me = data.players?.find(p => p.id === myId);
     if (me && player?.alive) {
-      /**
-       * FIX: "Kare kare ışınlanma" düzeltmesi
-       *
-       * ESKİ KOD:
-       *   player.x += (me.x - player.x) * _serverBlend;   // snap'te anında uygula
-       *   player.mass = me.mass;                            // anında değiştir
-       * → Her snap geldiğinde (~20Hz = her 50ms) player pozisyonu sıçrıyordu.
-       *   Bu, 60fps render üzerinde görsel "atlama" olarak hissediliyordu.
-       *
-       * YENİ KOD:
-       *   _srvX/_srvY'yi güncelle → _mpUpdate() her frame yumuşakça ilerler
-       *   Kütle de _srvMass ile frame'lere yayılmış şekilde senkronlanır
-       */
-      _srvX    = me.x;
-      _srvY    = me.y;
+      // FIX: Anında uygulama yerine hedef güncelle → _mpUpdate her frame yumuşakça yaklaşır
+      // Eski: player.x += (me.x-player.x)*0.18  → her 50ms'de görünür sıçrama
+      // Yeni: _srvX/Y hedef → 60fps'de smooth düzeltme
+      const snapDist = Math.hypot(me.x - player.x, me.y - player.y);
+      if (snapDist > 300) {
+        // Çok uzak (lag spike / ilk bağlantı) — anında ışınla
+        player.x = me.x; player.y = me.y; player.trail = [];
+        _srvX = null; _srvY = null;
+      } else {
+        _srvX = me.x; _srvY = me.y;
+      }
       _srvMass = me.mass;
       player.phaseT = me.phaseT || 0;
       score = me.score || score;
     }
-
     _syncPlayers(data.players);
     _syncBots(data.bots);
     _syncFood(data.food);
-    _snapTreasures = data.treasures || [];
-    if (data.asteroids)  asteroids  = data.asteroids;
-    if (data.wormholes)  wormholes  = data.wormholes;
-    if (data.blackHoles) blackHoles = data.blackHoles;
-
-    // Cooldown sync — sunucu yetkili, ama client tahminini tamamen ezme
-    // Sadece büyük fark varsa güncelle (küçük farklar client prediction'ı bozmaz)
-    if (data.boostCD != null && Math.abs((data.boostCD||0) - boostCD) > 8) boostCD = data.boostCD;
-    if (data.novaCD  != null && Math.abs((data.novaCD||0)  - novaCD)  > 8) novaCD  = data.novaCD;
-    if (data.specCD  != null && Math.abs((data.specCD||0)  - specCD)  > 8) specCD  = data.specCD;
+    _snapTreasures=data.treasures||[];
+    if(data.asteroids) asteroids=data.asteroids;
+    if(data.wormholes) wormholes=data.wormholes;
+    if(data.blackHoles) blackHoles=data.blackHoles;
+    if(data.boostCD!=null) boostCD=data.boostCD;
+    if(data.novaCD !=null) novaCD=data.novaCD;
+    if(data.specCD !=null) specCD=data.specCD;
   });
 
   socket.on('leaderboard',data=>{_leaderboard=data;});
@@ -712,15 +679,9 @@ function _connectSocket(){
     if(S.particles)burstParts(x,y,cols[el]||'#fff',28);
   });
 
-  socket.on('wormhole', ({x, y}) => {
-    sfxWormhole(); doFlash();
-    if (player) {
-      // FIX: Wormhole çıkışında da reconciliation state temizle
-      // Önceden _srvX/_srvY eski konumdaydı → çıkışta geri çekilme oluyordu
-      player.x = x; player.y = y; player.trail = [];
-      player.vx = 0; player.vy = 0;
-      _srvX = null; _srvY = null;
-    }
+  socket.on('wormhole',({x,y})=>{
+    sfxWormhole();doFlash();
+    if(player){player.x=x;player.y=y;player.trail=[];}
   });
 
   socket.on('food_eaten',ids=>{
@@ -730,40 +691,43 @@ function _connectSocket(){
     sfxEat();
   });
 
-  socket.on('died',data=>{
-    sfxDie();if(player)player.alive=false;
-    gameRunning=false;_showDeath(data);
-  });
-
-  socket.on('respawned',({x,y})=>{
-    if(player){
-      player.x=x; player.y=y; player.mass=15;
-      player.alive=true; player.trail=[];
-      player.vx=0; player.vy=0;
+  socket.on('died', data => {
+    sfxDie();
+    if (player) { player.alive = false; player.vx = 0; player.vy = 0; }
+    gameRunning = false;
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    // FIX: Canvas'ı kararlt — donuk son kare yerine smooth geçiş
+    if (gctx && gc) {
+      let _a = 0;
+      const _fi = setInterval(() => {
+        _a += 0.07;
+        gctx.fillStyle = `rgba(2,2,14,${Math.min(_a, 0.94)})`;
+        gctx.fillRect(0, 0, gc.width, gc.height);
+        if (_a >= 0.94) clearInterval(_fi);
+      }, 16);
     }
-    // FIX: Respawn sonrası reconciliation hedeflerini sıfırla
-    _srvX=null; _srvY=null; _srvMass=null;
-    // FIX: Spawn grace yeniden başlat
-    if(typeof _spawnGrace!=='undefined') window._spawnGrace=25;
-    score=0; combo=0; killCount=0;
-    document.getElementById('ov-death')?.classList.remove('on');
-    gameRunning=true;
-    if(!raf) raf=requestAnimationFrame(loop);
+    _showDeath(data);
   });
 
-  socket.on('pong_mp', () => {
-    const ms = Date.now() - _pingStart;
+  socket.on('respawned', ({x, y}) => {
+    if (player) {
+      player.x = x; player.y = y;
+      player.mass = 15; player.alive = true;
+      player.trail = []; player.vx = 0; player.vy = 0;
+    }
+    // FIX: Reconciliation ve spawn grace sıfırla
+    _srvX = null; _srvY = null; _srvMass = null;
+    _mpSpawnGrace = 30;
+    score = 0; combo = 0; killCount = 0;
+    document.getElementById('ov-death')?.classList.remove('on');
+    gameRunning = true;
+    if (!raf) raf = requestAnimationFrame(loop);
+  });
 
-    // FIX: Hem server blend hem de reconcile strength ping'e göre ayarlanıyor
-    // Düşük ping → daha güçlü düzeltme (sunucu pozisyonuna daha hızlı yaklaş)
-    // Yüksek ping → daha yavaş düzeltme (client prediction'ı koru, titreme azalsın)
-    if      (ms < 60)  { _serverBlend = 0.20; _reconcileStrength = 0.12; }
-    else if (ms < 120) { _serverBlend = 0.14; _reconcileStrength = 0.09; }
-    else if (ms < 200) { _serverBlend = 0.10; _reconcileStrength = 0.06; }
-    else               { _serverBlend = 0.06; _reconcileStrength = 0.04; }
-
+  socket.on('pong_mp',()=>{
+    const ms=Date.now()-_pingStart;
     _updatePingUI(ms);
-    setTimeout(_sendPing, 3000);
+    setTimeout(_sendPing,3000);
   });
 }
 
